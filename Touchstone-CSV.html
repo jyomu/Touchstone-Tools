@@ -491,9 +491,10 @@ function drawChart(key) {
   ctx.fillRect(0, 0, W, H);
 
   const minF = freqs[0], maxF = freqs[freqs.length - 1];
-  const allVals = [...vals, ...vals2];
-  let minV = allVals.reduce((a, b) => a < b ? a : b);
-  let maxV = allVals.reduce((a, b) => a > b ? a : b);
+  let minV = vals.reduce((a, b) => a < b ? a : b);
+  let maxV = vals.reduce((a, b) => a > b ? a : b);
+  minV = vals2.reduce((a, b) => a < b ? a : b, minV);
+  maxV = vals2.reduce((a, b) => a > b ? a : b, maxV);
   if (minV === maxV) { minV -= 1; maxV += 1; }
   const padV = (maxV - minV) * 0.08;
   minV -= padV; maxV += padV;
