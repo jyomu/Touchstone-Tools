@@ -172,7 +172,6 @@ header {
 
 .channel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 0.5rem;
 }
 
@@ -712,6 +711,7 @@ function renderInfoPanel() {
 
 function renderChannelGrid() {
   const { n } = parsed;
+  channelGrid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
   let html = '';
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
