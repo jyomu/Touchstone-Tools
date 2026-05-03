@@ -176,17 +176,17 @@ header {
 
 /* S-param grid */
 .sparm-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: grid;
+  gap: 3px;
 }
 .sp-item {
   display: flex;
   align-items: center;
   gap: 3px;
   cursor: pointer;
+  white-space: nowrap;
 }
-.sp-item input { cursor: pointer; margin: 0; width: 12px; height: 12px; }
+.sp-item input { cursor: pointer; margin: 0; width: 12px; height: 12px; flex-shrink: 0; }
 .sp-item label {
   font-family: var(--mono);
   font-size: 0.7rem;
@@ -396,7 +396,7 @@ header {
 
 <header>
   <div class="logo">Touchstone<span>·</span>Waveform</div>
-  <div class="subtitle">Sパラメータ波形解析ツール（矩形グラフ / スミスチャート · 1〜9ポート対応）</div>
+  <div class="subtitle">Sパラメータ波形解析ツール（dB / 位相 / 群遅延 / スミスチャート · 1〜9ポート対応）</div>
   <a class="back-link" href="index.html">← Tools</a>
 </header>
 
@@ -444,19 +444,13 @@ header {
       <button class="seg-btn" data-mode="gd">群遅延</button>
       <button class="seg-btn" data-mode="real">実部</button>
       <button class="seg-btn" data-mode="imag">虚部</button>
+      <button class="seg-btn" data-mode="smith">スミス</button>
     </div>
     <div class="toggle-row">
       <span class="toggle-label">周波数軸</span>
       <div class="btn-row">
         <button class="seg-btn active" id="freqLinBtn" data-fscale="linear">線形</button>
         <button class="seg-btn" id="freqLogBtn" data-fscale="log">対数</button>
-      </div>
-    </div>
-    <div class="toggle-row">
-      <span class="toggle-label">チャート</span>
-      <div class="btn-row">
-        <button class="seg-btn active" id="chartRectBtn" data-chart="rect">矩形</button>
-        <button class="seg-btn" id="chartSmithBtn" data-chart="smith">スミス</button>
       </div>
     </div>
   </div>
@@ -537,8 +531,8 @@ header {
 const PALETTE = ['#1D9E75','#E07B4A','#4A7CB5','#C94F7C','#7A5EA7','#B5A34A','#4AB5A3','#A34A4A'];
 const PAD = { left: 60, right: 16, top: 20, bottom: 44 };
 const SMITH_PAD = 28;
-const MODE_UNIT = { dB: 'dB', phase: '°', gd: 'ns', real: '', imag: '' };
-const MODE_LABEL = { dB: 'dB', phase: '位相 [°]', gd: '群遅延 [ns]', real: '実部', imag: '虚部' };
+const MODE_UNIT = { dB: 'dB', phase: '°', gd: 'ns', real: '', imag: '', smith: '' };
+const MODE_LABEL = { dB: 'dB', phase: '位相 [°]', gd: '群遅延 [ns]', real: '実部', imag: '虚部', smith: 'スミス' };
 
 // ── State ──────────────────────────────────────────────────────────────────
 let files       = [];
@@ -547,7 +541,6 @@ let nextColor   = 0;
 let viewState   = {
   mode:        'dB',
   freqLog:     false,
-  chartType:   'rect',
   zoom:        { fMin: null, fMax: null },
   markers:     [null, null],
   activeSlot:  0,
@@ -1140,7 +1133,7 @@ function drawSmith() {
 }
 
 function redraw() {
-  if (viewState.chartType === 'smith') drawSmith();
+  if (viewState.mode === 'smith') drawSmith();
   else drawRect();
   updateStatsPanel();
 }
@@ -1294,11 +1287,13 @@ function renderFileList() {
 function renderSparmGrid() {
   const maxN = Math.max(...files.map(f => f.n), 0);
   if (!maxN) {
+    sparmGrid.style.gridTemplateColumns = '';
     sparmGrid.innerHTML = '<div class="empty-msg">ファイルを読み込んでください</div>';
     sparmActions.style.display = 'none';
     return;
   }
   sparmActions.style.display = '';
+  sparmGrid.style.gridTemplateColumns = `repeat(${maxN}, auto)`;
   let html = '';
   for (let i = 1; i <= maxN; i++) {
     for (let j = 1; j <= maxN; j++) {
@@ -1306,7 +1301,7 @@ function renderSparmGrid() {
       const chk = viewState.visibleParams.has(key);
       html += `<label class="sp-item">
         <input type="checkbox" data-key="${key}" ${chk ? 'checked' : ''}>
-        <span style="font-family:var(--mono);font-size:0.7rem;color:${chk ? 'var(--text)' : 'var(--text-muted)'}">S${key}</span>
+        <span>S${key}</span>
       </label>`;
     }
   }
@@ -1332,7 +1327,7 @@ function renderAll() {
 // ── Canvas events ──────────────────────────────────────────────────────────
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  if (viewState.chartType !== 'rect') return;
+  if (viewState.mode === 'smith') return;
   const rect = canvas.getBoundingClientRect();
   const px   = e.clientX - rect.left;
   const { plotW } = plotDims();
@@ -1364,7 +1359,7 @@ canvas.addEventListener('wheel', e => {
 }, { passive: false });
 
 canvas.addEventListener('pointerdown', e => {
-  if (viewState.chartType !== 'rect') return;
+  if (viewState.mode === 'smith') return;
   const { fMin, fMax } = getFreqRange();
   drag = { startX: e.offsetX, startFMin: fMin, startFMax: fMax };
   wasDragging = false;
@@ -1397,7 +1392,7 @@ canvas.addEventListener('pointermove', e => {
       }
       redraw();
     }
-  } else if (viewState.chartType === 'rect') {
+  } else if (viewState.mode !== 'smith') {
     updateHoverReadout(e.offsetX);
   }
 });
@@ -1409,7 +1404,7 @@ canvas.addEventListener('pointerup', e => {
 
 canvas.addEventListener('click', e => {
   if (wasDragging) { wasDragging = false; return; }
-  if (viewState.chartType !== 'rect') return;
+  if (viewState.mode === 'smith') return;
   const { plotW } = plotDims();
   if (e.offsetX < PAD.left || e.offsetX > PAD.left + plotW) return;
   const snapped = pixelToSnappedFreq(e.offsetX);
@@ -1474,6 +1469,7 @@ document.getElementById('modeBtns').addEventListener('click', e => {
   if (!btn) return;
   viewState.mode = btn.dataset.mode;
   document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b === btn));
+  canvas.style.cursor = viewState.mode === 'smith' ? 'default' : 'crosshair';
   viewState.markers = [null, null];
   updateMarkerPanel();
   redraw();
@@ -1489,15 +1485,6 @@ document.getElementById('modeBtns').addEventListener('click', e => {
   });
 });
 
-[document.getElementById('chartRectBtn'), document.getElementById('chartSmithBtn')].forEach(btn => {
-  btn.addEventListener('click', () => {
-    viewState.chartType = btn.dataset.chart;
-    document.getElementById('chartRectBtn').classList.toggle('active', viewState.chartType === 'rect');
-    document.getElementById('chartSmithBtn').classList.toggle('active', viewState.chartType === 'smith');
-    canvas.style.cursor = viewState.chartType === 'smith' ? 'default' : 'crosshair';
-    redraw();
-  });
-});
 
 document.getElementById('sparmAllBtn').addEventListener('click', () => {
   sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
