@@ -384,68 +384,8 @@ header {
 
 </div>
 
-<script>
-// ── Minimal ZIP writer (no external deps) ──────────────────────────────────
-(function() {
-  const CRC_TABLE = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-    CRC_TABLE[i] = c;
-  }
-  function crc32(bytes) {
-    let crc = 0xFFFFFFFF;
-    for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
-    return (crc ^ 0xFFFFFFFF) >>> 0;
-  }
-  function u16le(v) { return [(v & 0xFF), (v >> 8) & 0xFF]; }
-  function u32le(v) { return [v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF]; }
-  /** @param {{ name:string, data:string }[]} files @returns {Uint8Array} */
-  window.buildZip = function(files) {
-    const enc = new TextEncoder();
-    const parts = [];
-    const central = [];
-    let offset = 0;
-    for (const f of files) {
-      const name = enc.encode(f.name);
-      const data = enc.encode(f.data);
-      const crc  = crc32(data);
-      const sz   = data.length;
-      const lh   = new Uint8Array([
-        0x50,0x4B,0x03,0x04, ...u16le(20), ...u16le(0), ...u16le(0),
-        ...u16le(0), ...u16le(0), ...u32le(crc),
-        ...u32le(sz), ...u32le(sz), ...u16le(name.length), ...u16le(0),
-        ...name,
-      ]);
-      central.push({ name, crc, sz, offset });
-      parts.push(lh, data);
-      offset += lh.length + data.length;
-    }
-    const cdStart = offset;
-    const cds = central.map(({ name, crc, sz, offset: off }) =>
-      new Uint8Array([
-        0x50,0x4B,0x01,0x02, ...u16le(20), ...u16le(20), ...u16le(0), ...u16le(0),
-        ...u16le(0), ...u16le(0), ...u32le(crc),
-        ...u32le(sz), ...u32le(sz), ...u16le(name.length),
-        ...u16le(0), ...u16le(0), ...u16le(0), ...u16le(0), ...u32le(0), ...u32le(off),
-        ...name,
-      ])
-    );
-    const cdSize = cds.reduce((s, c) => s + c.length, 0);
-    const eocd = new Uint8Array([
-      0x50,0x4B,0x05,0x06, ...u16le(0), ...u16le(0),
-      ...u16le(central.length), ...u16le(central.length),
-      ...u32le(cdSize), ...u32le(cdStart), ...u16le(0),
-    ]);
-    const all = [...parts, ...cds, eocd];
-    const total = all.reduce((s, a) => s + a.length, 0);
-    const buf = new Uint8Array(total);
-    let pos = 0;
-    for (const a of all) { buf.set(a, pos); pos += a.length; }
-    return buf;
-  };
-})();
-</script>
+<script src="lib/zip.js"></script>
+<script src="lib/touchstone.js"></script>
 <script type="module">
 // ── Types ──────────────────────────────────────────────────────────────────
 /** @typedef {'waiting'|'ok'|'error'|'warning'} Status */
@@ -477,61 +417,6 @@ const statsLabel = document.getElementById('statsLabel');
 const fmtDesc    = document.getElementById('fmtDesc');
 
 // ── Conversion logic (N-port Touchstone 1.0) ──────────────────────────────
-/** Detect port count N from filename extension (.s1p→1, .s2p→2, …) */
-function portCount(filename) {
-  const m = filename.match(/\.s(\d+)p$/i);
-  if (!m) throw new Error(`不明な拡張子: ${filename}`);
-  return parseInt(m[1], 10);
-}
-
-/** Extract RI/DB/MA token from option line. */
-function detectFmt(optionLine) {
-  const tokens = optionLine.toUpperCase().split(/\s+/);
-  for (const t of ['RI', 'DB', 'MA']) {
-    if (tokens.includes(t)) return t;
-  }
-  throw new Error(`不明なフォーマット: ${optionLine}`);
-}
-
-/**
- * Parse Touchstone 1.0 file.
- * Returns { comments, optionLine, inFmt, freqData }
- * freqData: Array of { freq, pairs: [a,b][] }  (n² pairs per freq point)
- * Handles tab/space delimiter and multi-row freq points.
- */
-function parseTouchstone(content, n) {
-  const nPairs = n * n;
-  const valsPerFreq = 1 + 2 * nPairs;
-  const comments = [];
-  let optionLine = null;
-  const rawVals = [];
-
-  for (const raw of content.split(/\r?\n/)) {
-    const stripped = raw.replace(/!.*$/, '').trim();
-    if (raw.trimStart().startsWith('!')) { comments.push(raw.replace(/[\r\n]+$/, '')); continue; }
-    if (!stripped) continue;
-    if (stripped.startsWith('#')) { optionLine = stripped; continue; }
-    for (const tok of stripped.split(/[\t ]+/)) {
-      if (tok !== '') rawVals.push(parseFloat(tok));
-    }
-  }
-
-  if (!optionLine) throw new Error('オプション行が見つかりません');
-  if (rawVals.length % valsPerFreq !== 0) {
-    throw new Error(`値数不正: ${rawVals.length} 値 (N=${n}, 期待: ${valsPerFreq} の倍数)`);
-  }
-  const inFmt = detectFmt(optionLine);
-  const freqData = [];
-  for (let i = 0; i < rawVals.length; i += valsPerFreq) {
-    const pairs = [];
-    for (let j = 0; j < nPairs; j++) {
-      pairs.push([rawVals[i + 1 + j * 2], rawVals[i + 2 + j * 2]]);
-    }
-    freqData.push({ freq: rawVals[i], pairs });
-  }
-  return { comments, optionLine, inFmt, freqData };
-}
-
 /** [a,b] in inFmt → [re,im] */
 function toRI(a, b, inFmt) {
   if (inFmt === 'RI') return [a, b];
@@ -575,19 +460,13 @@ function buildTouchstone(parsed, outFmt, n) {
 
 /** @param {File} file @param {string} outFmt @returns {Promise<{output:string, inFmt:string, n:number}>} */
 async function convertFile(file, outFmt) {
-  const n      = portCount(file.name);
+  const n      = TT.portCount(file.name);
   const text   = await file.text();
-  const parsed = parseTouchstone(text, n);
+  const parsed = TT.parseTouchstone(text, n);
   return { output: buildTouchstone(parsed, outFmt, n), inFmt: parsed.inFmt, n };
 }
 
 // ── Rendering ──────────────────────────────────────────────────────────────
-function fmt_size(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
-}
-
 function statusBadge(entry) {
   const map = {
     waiting: ['status-waiting', '待機中'],
@@ -621,10 +500,10 @@ function render() {
   const rows = entries.map(e => `
     <tr data-id="${e.id}">
       <td>
-        <div class="file-name">${escHtml(e.name)}</div>
-        ${e.message ? `<div class="error-msg">${escHtml(e.message)}</div>` : ''}
+        <div class="file-name">${TT.escHtml(e.name)}</div>
+        ${e.message ? `<div class="error-msg">${TT.escHtml(e.message)}</div>` : ''}
       </td>
-      <td class="file-size">${fmt_size(e.file.size)}</td>
+      <td class="file-size">${TT.fmt_size(e.file.size)}</td>
       <td style="font-family:var(--mono); font-size:0.7rem; color:var(--text-faint);">${e.inFmt ?? '—'}</td>
       <td style="font-family:var(--mono); font-size:0.7rem; color:var(--text-faint);">${e.n != null ? `S${e.n}P` : '—'}</td>
       <td>${statusBadge(e)}</td>
@@ -648,10 +527,6 @@ function render() {
       <tbody>${rows}</tbody>
     </table>
   `;
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────
@@ -709,7 +584,7 @@ dlAllBtn.addEventListener('click', async () => {
   dlAllBtn.textContent = '生成中…';
 
   const files = okEntries.map(e => ({ name: e.name, data: e.output }));
-  const zipBytes = buildZip(files);
+  const zipBytes = TT.buildZip(files);
   const blob = new Blob([zipBytes], { type: 'application/zip' });
   const url  = URL.createObjectURL(blob);
   const now = new Date();

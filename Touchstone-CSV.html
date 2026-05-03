@@ -409,68 +409,8 @@ canvas#previewCanvas {
 
 </div>
 
-<script>
-// ── Minimal ZIP writer ─────────────────────────────────────────────────────
-(function() {
-  const CRC_TABLE = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-    CRC_TABLE[i] = c;
-  }
-  function crc32(bytes) {
-    let crc = 0xFFFFFFFF;
-    for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
-    return (crc ^ 0xFFFFFFFF) >>> 0;
-  }
-  function u16le(v) { return [(v & 0xFF), (v >> 8) & 0xFF]; }
-  function u32le(v) { return [v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF]; }
-  window.buildZip = function(files) {
-    const enc = new TextEncoder();
-    const parts = [];
-    const central = [];
-    let offset = 0;
-    for (const f of files) {
-      const name = enc.encode(f.name);
-      const data = enc.encode(f.data);
-      const crc  = crc32(data);
-      const sz   = data.length;
-      const lh   = new Uint8Array([
-        0x50,0x4B,0x03,0x04, ...u16le(20), ...u16le(0), ...u16le(0),
-        ...u16le(0), ...u16le(0), ...u32le(crc),
-        ...u32le(sz), ...u32le(sz), ...u16le(name.length), ...u16le(0),
-        ...name,
-      ]);
-      central.push({ name, crc, sz, offset });
-      parts.push(lh, data);
-      offset += lh.length + data.length;
-    }
-    const cdStart = offset;
-    const cds = central.map(({ name, crc, sz, offset: off }) =>
-      new Uint8Array([
-        0x50,0x4B,0x01,0x02, ...u16le(20), ...u16le(20), ...u16le(0), ...u16le(0),
-        ...u16le(0), ...u16le(0), ...u32le(crc),
-        ...u32le(sz), ...u32le(sz), ...u16le(name.length),
-        ...u16le(0), ...u16le(0), ...u16le(0), ...u16le(0), ...u32le(0), ...u32le(off),
-        ...name,
-      ])
-    );
-    const cdSize = cds.reduce((s, c) => s + c.length, 0);
-    const eocd = new Uint8Array([
-      0x50,0x4B,0x05,0x06, ...u16le(0), ...u16le(0),
-      ...u16le(central.length), ...u16le(central.length),
-      ...u32le(cdSize), ...u32le(cdStart), ...u16le(0),
-    ]);
-    const all = [...parts, ...cds, eocd];
-    const total = all.reduce((s, a) => s + a.length, 0);
-    const buf = new Uint8Array(total);
-    let pos = 0;
-    for (const a of all) { buf.set(a, pos); pos += a.length; }
-    return buf;
-  };
-})();
-</script>
-
+<script src="lib/zip.js"></script>
+<script src="lib/touchstone.js"></script>
 <script type="module">
 // ── State ──────────────────────────────────────────────────────────────────
 let parsed   = null;  // { comments, optionLine, inFmt, freqData, n, basename, freqUnit }
@@ -493,64 +433,6 @@ const dlZipBtn     = document.getElementById('dlZipBtn');
 const clearBtn     = document.getElementById('clearBtn');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const selectNoneBtn = document.getElementById('selectNoneBtn');
-
-// ── Touchstone parsing ─────────────────────────────────────────────────────
-function portCount(filename) {
-  const m = filename.match(/\.s(\d+)p$/i);
-  if (!m) throw new Error(`不明な拡張子: ${filename}`);
-  return parseInt(m[1], 10);
-}
-
-function detectFmt(optionLine) {
-  const tokens = optionLine.toUpperCase().split(/\s+/);
-  for (const t of ['RI', 'DB', 'MA']) {
-    if (tokens.includes(t)) return t;
-  }
-  throw new Error(`不明なフォーマット: ${optionLine}`);
-}
-
-function detectFreqUnit(optionLine) {
-  const tokens = optionLine.toUpperCase().split(/\s+/);
-  const map = { GHZ: 'GHz', MHZ: 'MHz', KHZ: 'kHz', HZ: 'Hz' };
-  for (const t of ['GHZ', 'MHZ', 'KHZ', 'HZ']) {
-    if (tokens.includes(t)) return map[t];
-  }
-  return 'Hz';
-}
-
-function parseTouchstone(content, n) {
-  const nPairs = n * n;
-  const valsPerFreq = 1 + 2 * nPairs;
-  const comments = [];
-  let optionLine = null;
-  const rawVals = [];
-
-  for (const raw of content.split(/\r?\n/)) {
-    const stripped = raw.replace(/!.*$/, '').trim();
-    if (raw.trimStart().startsWith('!')) { comments.push(raw.replace(/[\r\n]+$/, '')); continue; }
-    if (!stripped) continue;
-    if (stripped.startsWith('#')) { optionLine = stripped; continue; }
-    for (const tok of stripped.split(/[\t ]+/)) {
-      if (tok !== '') rawVals.push(parseFloat(tok));
-    }
-  }
-
-  if (!optionLine) throw new Error('オプション行が見つかりません');
-  if (rawVals.length % valsPerFreq !== 0) {
-    throw new Error(`値数不正: ${rawVals.length} 値 (N=${n}, 期待: ${valsPerFreq} の倍数)`);
-  }
-  const inFmt = detectFmt(optionLine);
-  const freqUnit = detectFreqUnit(optionLine);
-  const freqData = [];
-  for (let i = 0; i < rawVals.length; i += valsPerFreq) {
-    const pairs = [];
-    for (let j = 0; j < nPairs; j++) {
-      pairs.push([rawVals[i + 1 + j * 2], rawVals[i + 2 + j * 2]]);
-    }
-    freqData.push({ freq: rawVals[i], pairs });
-  }
-  return { comments, optionLine, inFmt, freqUnit, freqData };
-}
 
 // ── CSV builder ────────────────────────────────────────────────────────────
 function colHeaders(inFmt, key) {
@@ -580,16 +462,6 @@ function buildChannelCSV(i, j) {
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function fmt_size(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
-}
-
 function keyToIJ(key) {
   // key is e.g. "11", "12", "21" — always 2 chars for ≤9 ports
   return { i: parseInt(key[0], 10) - 1, j: parseInt(key[1], 10) - 1 };
@@ -715,8 +587,8 @@ function renderInfoPanel() {
     { label: 'チャンネル数', value: `${n * n} ch` },
   ].map(({ label, value }) => `
     <div class="info-cell">
-      <div class="info-label">${escHtml(label)}</div>
-      <div class="info-value">${escHtml(String(value))}</div>
+      <div class="info-label">${TT.escHtml(label)}</div>
+      <div class="info-value">${TT.escHtml(String(value))}</div>
     </div>
   `).join('');
 }
@@ -734,7 +606,7 @@ function renderChannelGrid() {
         <div class="channel-card${isSel ? ' selected' : ''}${isPrev ? ' previewing' : ''}" data-key="${key}">
           <div class="channel-header">
             <input type="checkbox" class="channel-check" data-key="${key}" ${isSel ? 'checked' : ''}>
-            <span class="channel-name">S${escHtml(key)}</span>
+            <span class="channel-name">S${TT.escHtml(key)}</span>
           </div>
           <div class="channel-actions">
             <button class="channel-preview-btn" data-key="${key}">グラフ</button>
@@ -819,9 +691,9 @@ function hideError() {
 async function loadFile(file) {
   hideError();
   try {
-    const n    = portCount(file.name);
+    const n    = TT.portCount(file.name);
     const text = await file.text();
-    const data = parseTouchstone(text, n);
+    const data = TT.parseTouchstone(text, n);
     const basename = file.name.replace(/\.s\d+p$/i, '');
 
     parsed     = { ...data, n, basename };
@@ -888,7 +760,7 @@ dlZipBtn.addEventListener('click', () => {
     });
   }
 
-  const zipBytes = buildZip(files);
+  const zipBytes = TT.buildZip(files);
   const blob = new Blob([zipBytes], { type: 'application/zip' });
   const url  = URL.createObjectURL(blob);
   const a    = Object.assign(document.createElement('a'), {
