@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Touchstone Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F5F4F1;
+  --surface: #FDFCFA;
+  --border: #D8D5CE;
+  --border-mid: #BFBBAF;
+  --text: #1C1B18;
+  --text-muted: #6B6860;
+  --text-faint: #9E9B93;
+  --accent: #0A5C47;
+  --accent-bg: #E1F5EE;
+  --accent-mid: #1D9E75;
+  --success: #1D9E75;
+  --error: #993C1D;
+  --error-bg: #FAECE7;
+  --warning: #854F0B;
+  --warning-bg: #FAEEDA;
+  --mono: 'IBM Plex Mono', 'Cascadia Code', 'Menlo', monospace;
+  --sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.app {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+header {
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.logo span {
+  color: var(--accent-mid);
+}
+
+.subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.panel-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.875rem;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border-mid);
+  border-radius: var(--radius);
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent-mid);
+  background: var(--accent-bg);
+}
+
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.drop-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 0.75rem;
+  color: var(--text-faint);
+}
+
+.drop-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.drop-label strong {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.drop-sub {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  margin-top: 0.25rem;
+  font-family: var(--mono);
+}
+
+/* Format selector */
+.format-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.format-label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  min-width: 80px;
+}
+
+.format-options {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.fmt-btn {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.fmt-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+
+.fmt-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.fmt-desc {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  font-family: var(--mono);
+}
+
+/* File table */
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.file-table th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  padding: 0 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.file-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.file-table tr:last-child td { border-bottom: none; }
+
+.file-name {
+  font-family: var(--mono);
+  font-size: 0.775rem;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.file-size {
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.status-waiting  { background: var(--bg); color: var(--text-faint); }
+.status-ok       { background: var(--accent-bg); color: var(--accent); }
+.status-error    { background: var(--error-bg); color: var(--error); }
+.status-warning  { background: var(--warning-bg); color: var(--warning); }
+
+.dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.dl-btn {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.dl-btn:hover { background: var(--accent-bg); border-color: var(--accent-mid); }
+.dl-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.dl-btn-remove {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.dl-btn-remove:hover { background: var(--error-bg); color: var(--error); }
+
+.empty-state {
+  text-align: center;
+  padding: 2.5rem;
+  color: var(--text-faint);
+  font-size: 0.8125rem;
+}
+
+/* Action bar */
+.action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.stats {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+.btn-group { display: flex; gap: 0.5rem; }
+
+.btn {
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.12s;
+  border: 1px solid;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-primary:hover { background: #0A4F3E; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover { border-color: var(--border-mid); background: var(--bg); }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.error-msg {
+  font-size: 0.7rem;
+  font-family: var(--mono);
+  color: var(--error);
+  margin-top: 0.25rem;
+  word-break: break-word;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">Touchstone<span>·</span>Converter</div>
+  <div class="subtitle">S-パラメータ形式変換ツール（RI / DB / MA · 1〜9 ポート対応）</div>
+</header>
+
+<div class="panel">
+  <div class="panel-title">Input</div>
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" multiple accept=".s1p,.s2p,.s3p,.s4p,.s5p,.s6p,.s7p,.s8p,.s9p">
+    <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <div class="drop-label"><strong>クリックまたはドロップ</strong>して Touchstone ファイルを追加</div>
+    <div class="drop-sub">RI / DB / MA フォーマットの .s1p〜.s9p（複数可）</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">Output Format</div>
+  <div class="format-row">
+    <span class="format-label">変換形式</span>
+    <div class="format-options">
+      <button class="fmt-btn active" data-fmt="DB">DB</button>
+      <button class="fmt-btn" data-fmt="MA">MA</button>
+      <button class="fmt-btn" data-fmt="RI">RI</button>
+    </div>
+    <span class="fmt-desc" id="fmtDesc">20·log₁₀(mag) + phase [deg]</span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">Files</div>
+  <div id="fileListWrap">
+    <div class="empty-state">ファイルがありません</div>
+  </div>
+</div>
+
+<div class="action-bar">
+  <span class="stats" id="statsLabel"></span>
+  <div class="btn-group">
+    <button class="btn btn-secondary" id="clearBtn" disabled>クリア</button>
+    <button class="btn btn-secondary" id="dlAllBtn" disabled>ZIP でダウンロード</button>
+    <button class="btn btn-primary" id="convertBtn" disabled>変換する</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ── Minimal ZIP writer (no external deps) ──────────────────────────────────
+(function() {
+  const CRC_TABLE = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    CRC_TABLE[i] = c;
+  }
+  function crc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+  function u16le(v) { return [(v & 0xFF), (v >> 8) & 0xFF]; }
+  function u32le(v) { return [v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF]; }
+  /** @param {{ name:string, data:string }[]} files @returns {Uint8Array} */
+  window.buildZip = function(files) {
+    const enc = new TextEncoder();
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name);
+      const data = enc.encode(f.data);
+      const crc  = crc32(data);
+      const sz   = data.length;
+      const lh   = new Uint8Array([
+        0x50,0x4B,0x03,0x04, ...u16le(20), ...u16le(0), ...u16le(0),
+        ...u16le(0), ...u16le(0), ...u32le(crc),
+        ...u32le(sz), ...u32le(sz), ...u16le(name.length), ...u16le(0),
+        ...name,
+      ]);
+      central.push({ name, crc, sz, offset });
+      parts.push(lh, data);
+      offset += lh.length + data.length;
+    }
+    const cdStart = offset;
+    const cds = central.map(({ name, crc, sz, offset: off }) =>
+      new Uint8Array([
+        0x50,0x4B,0x01,0x02, ...u16le(20), ...u16le(20), ...u16le(0), ...u16le(0),
+        ...u16le(0), ...u16le(0), ...u32le(crc),
+        ...u32le(sz), ...u32le(sz), ...u16le(name.length),
+        ...u16le(0), ...u16le(0), ...u16le(0), ...u16le(0), ...u32le(0), ...u32le(off),
+        ...name,
+      ])
+    );
+    const cdSize = cds.reduce((s, c) => s + c.length, 0);
+    const eocd = new Uint8Array([
+      0x50,0x4B,0x05,0x06, ...u16le(0), ...u16le(0),
+      ...u16le(central.length), ...u16le(central.length),
+      ...u32le(cdSize), ...u32le(cdStart), ...u16le(0),
+    ]);
+    const all = [...parts, ...cds, eocd];
+    const total = all.reduce((s, a) => s + a.length, 0);
+    const buf = new Uint8Array(total);
+    let pos = 0;
+    for (const a of all) { buf.set(a, pos); pos += a.length; }
+    return buf;
+  };
+})();
+</script>
+<script type="module">
+// ── Types ──────────────────────────────────────────────────────────────────
+/** @typedef {'waiting'|'ok'|'error'|'warning'} Status */
+/** @typedef {{ id:number, file:File, name:string, status:Status, message:string, output:string|null, inputFmt:string|null }} FileEntry */
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const MIN_DB = -999.999;
+
+const FORMAT_DESC = {
+  DB: '20·log₁₀(mag) + phase [deg]',
+  MA: 'sqrt(Re²+Im²) + phase [deg]',
+  RI: 'passthrough (Re + Im)',
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+let entries  = /** @type {FileEntry[]} */ ([]);
+let nextId   = 0;
+let format   = 'DB';
+let converted = false;
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const dropZone   = document.getElementById('dropZone');
+const fileInput  = document.getElementById('fileInput');
+const listWrap   = document.getElementById('fileListWrap');
+const convertBtn = document.getElementById('convertBtn');
+const dlAllBtn   = document.getElementById('dlAllBtn');
+const clearBtn   = document.getElementById('clearBtn');
+const statsLabel = document.getElementById('statsLabel');
+const fmtDesc    = document.getElementById('fmtDesc');
+
+// ── Conversion logic (N-port Touchstone 1.0) ──────────────────────────────
+/** Detect port count N from filename extension (.s1p→1, .s2p→2, …) */
+function portCount(filename) {
+  const m = filename.match(/\.s(\d+)p$/i);
+  if (!m) throw new Error(`不明な拡張子: ${filename}`);
+  return parseInt(m[1], 10);
+}
+
+/** Extract RI/DB/MA token from option line. */
+function detectFmt(optionLine) {
+  const tokens = optionLine.toUpperCase().split(/\s+/);
+  for (const t of ['RI', 'DB', 'MA']) {
+    if (tokens.includes(t)) return t;
+  }
+  throw new Error(`不明なフォーマット: ${optionLine}`);
+}
+
+/**
+ * Parse Touchstone 1.0 file.
+ * Returns { comments, optionLine, inFmt, freqData }
+ * freqData: Array of { freq, pairs: [a,b][] }  (n² pairs per freq point)
+ * Handles tab/space delimiter and multi-row freq points.
+ */
+function parseTouchstone(content, n) {
+  const nPairs = n * n;
+  const valsPerFreq = 1 + 2 * nPairs;
+  const comments = [];
+  let optionLine = null;
+  const rawVals = [];
+
+  for (const raw of content.split(/\r?\n/)) {
+    const stripped = raw.replace(/!.*$/, '').trim();
+    if (raw.trimStart().startsWith('!')) { comments.push(raw.replace(/[\r\n]+$/, '')); continue; }
+    if (!stripped) continue;
+    if (stripped.startsWith('#')) { optionLine = stripped; continue; }
+    for (const tok of stripped.split(/[\t ]+/)) {
+      if (tok !== '') rawVals.push(parseFloat(tok));
+    }
+  }
+
+  if (!optionLine) throw new Error('オプション行が見つかりません');
+  if (rawVals.length % valsPerFreq !== 0) {
+    throw new Error(`値数不正: ${rawVals.length} 値 (N=${n}, 期待: ${valsPerFreq} の倍数)`);
+  }
+  const inFmt = detectFmt(optionLine);
+  const freqData = [];
+  for (let i = 0; i < rawVals.length; i += valsPerFreq) {
+    const pairs = [];
+    for (let j = 0; j < nPairs; j++) {
+      pairs.push([rawVals[i + 1 + j * 2], rawVals[i + 2 + j * 2]]);
+    }
+    freqData.push({ freq: rawVals[i], pairs });
+  }
+  return { comments, optionLine, inFmt, freqData };
+}
+
+/** [a,b] in inFmt → [re,im] */
+function toRI(a, b, inFmt) {
+  if (inFmt === 'RI') return [a, b];
+  const phaseRad = b * Math.PI / 180;
+  const mag = inFmt === 'DB' ? (a <= -999 ? 0 : Math.pow(10, a / 20)) : a;
+  return [mag * Math.cos(phaseRad), mag * Math.sin(phaseRad)];
+}
+
+/** [re,im] → [a,b] in outFmt */
+function fromRI(re, im, outFmt) {
+  if (outFmt === 'RI') return [re, im];
+  const mag   = Math.sqrt(re * re + im * im);
+  const phase = Math.atan2(im, re) * 180 / Math.PI;
+  if (outFmt === 'DB') return [mag === 0 ? MIN_DB : 20 * Math.log10(mag), phase];
+  return [mag, phase];
+}
+
+/** Build Touchstone output string from parsed data. */
+function buildTouchstone(parsed, outFmt, n) {
+  const { comments, optionLine, inFmt, freqData } = parsed;
+  const newOption = optionLine.replace(new RegExp(`\\s${inFmt}\\s`, 'i'), ` ${outFmt} `);
+  const lines = [...comments, newOption];
+
+  for (const { freq, pairs } of freqData) {
+    const outPairs = pairs.map(([a, b]) => {
+      const [re, im] = toRI(a, b, inFmt);
+      return fromRI(re, im, outFmt);
+    });
+    if (n <= 2) {
+      lines.push([String(freq), ...outPairs.flat().map(v => v.toExponential(6))].join('\t'));
+    } else {
+      // Row-per-port: first row has freq, each row has N pairs
+      for (let row = 0; row < n; row++) {
+        const rowVals = outPairs.slice(row * n, (row + 1) * n).flat().map(v => v.toExponential(6));
+        lines.push((row === 0 ? [String(freq), ...rowVals] : rowVals).join('\t'));
+      }
+    }
+  }
+  return lines.join('\n') + '\n';
+}
+
+/** @param {File} file @param {string} outFmt @returns {Promise<{output:string, inFmt:string, n:number}>} */
+async function convertFile(file, outFmt) {
+  const n      = portCount(file.name);
+  const text   = await file.text();
+  const parsed = parseTouchstone(text, n);
+  return { output: buildTouchstone(parsed, outFmt, n), inFmt: parsed.inFmt, n };
+}
+
+// ── Rendering ──────────────────────────────────────────────────────────────
+function fmt_size(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function statusBadge(entry) {
+  const map = {
+    waiting: ['status-waiting', '待機中'],
+    ok:      ['status-ok',      '変換済'],
+    error:   ['status-error',   'エラー'],
+    warning: ['status-warning', '警告'],
+  };
+  const [cls, label] = map[entry.status];
+  return `<span class="status-badge ${cls}"><span class="dot"></span>${label}</span>`;
+}
+
+function render() {
+  const hasFiles = entries.length > 0;
+  const hasConverted = entries.some(e => e.status === 'ok');
+
+  convertBtn.disabled = !hasFiles;
+  clearBtn.disabled   = !hasFiles;
+  dlAllBtn.disabled   = !hasConverted;
+
+  const ok  = entries.filter(e => e.status === 'ok').length;
+  const err = entries.filter(e => e.status === 'error').length;
+  statsLabel.textContent = hasFiles
+    ? `${entries.length} ファイル${ok ? ` · 変換済 ${ok}` : ''}${err ? ` · エラー ${err}` : ''}`
+    : '';
+
+  if (!hasFiles) {
+    listWrap.innerHTML = '<div class="empty-state">ファイルがありません</div>';
+    return;
+  }
+
+  const rows = entries.map(e => `
+    <tr data-id="${e.id}">
+      <td>
+        <div class="file-name">${escHtml(e.name)}</div>
+        ${e.message ? `<div class="error-msg">${escHtml(e.message)}</div>` : ''}
+      </td>
+      <td class="file-size">${fmt_size(e.file.size)}</td>
+      <td style="font-family:var(--mono); font-size:0.7rem; color:var(--text-faint);">${e.inFmt ?? '—'}</td>
+      <td style="font-family:var(--mono); font-size:0.7rem; color:var(--text-faint);">${e.n != null ? `S${e.n}P` : '—'}</td>
+      <td>${statusBadge(e)}</td>
+      <td style="text-align:right; white-space:nowrap; display:flex; gap:4px; justify-content:flex-end;">
+        <button class="dl-btn" ${e.status !== 'ok' ? 'disabled' : ''} onclick="downloadOne(${e.id})">↓ DL</button>
+        <button class="dl-btn-remove" onclick="removeEntry(${e.id})">✕</button>
+      </td>
+    </tr>
+  `).join('');
+
+  listWrap.innerHTML = `
+    <table class="file-table">
+      <thead><tr>
+        <th>ファイル名</th>
+        <th>サイズ</th>
+        <th>入力形式</th>
+        <th>ポート</th>
+        <th>状態</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────
+window.downloadOne = function(id) {
+  const e = entries.find(x => x.id === id);
+  if (!e?.output) return;
+  const blob = new Blob([e.output], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: e.name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+window.removeEntry = function(id) {
+  entries = entries.filter(e => e.id !== id);
+  render();
+};
+
+convertBtn.addEventListener('click', async () => {
+  convertBtn.disabled = true;
+  convertBtn.textContent = '変換中…';
+
+  for (const e of entries) {
+    e.status  = 'waiting';
+    e.message = '';
+    e.output  = null;
+    e.inFmt   = null;
+    e.n       = null;
+  }
+  render();
+
+  for (const e of entries) {
+    try {
+      const result = await convertFile(e.file, format);
+      e.output = result.output;
+      e.inFmt  = result.inFmt;
+      e.n      = result.n;
+      e.status = 'ok';
+    } catch (err) {
+      e.status  = 'error';
+      e.message = err.message;
+    }
+    render();
+  }
+
+  convertBtn.disabled  = false;
+  convertBtn.textContent = '変換する';
+});
+
+dlAllBtn.addEventListener('click', async () => {
+  const okEntries = entries.filter(e => e.status === 'ok' && e.output);
+  if (!okEntries.length) return;
+
+  dlAllBtn.disabled  = true;
+  dlAllBtn.textContent = '生成中…';
+
+  const files = okEntries.map(e => ({ name: e.name, data: e.output }));
+  const zipBytes = buildZip(files);
+  const blob = new Blob([zipBytes], { type: 'application/zip' });
+  const url  = URL.createObjectURL(blob);
+  const now = new Date();
+  const ts = (now.getMonth()+1).toString().padStart(2,'0')
+           + now.getDate().toString().padStart(2,'0')
+           + now.getHours().toString().padStart(2,'0')
+           + now.getMinutes().toString().padStart(2,'0');
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `${ts}_${format}.zip`,
+  });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+  dlAllBtn.disabled  = false;
+  dlAllBtn.textContent = 'ZIP でダウンロード';
+});
+
+clearBtn.addEventListener('click', () => {
+  entries = [];
+  fileInput.value = '';
+  render();
+});
+
+// ── File input ─────────────────────────────────────────────────────────────
+function addFiles(fileList) {
+  const snpFiles = Array.from(fileList).filter(f => /\.s\d+p$/i.test(f.name));
+  const existing = new Set(entries.map(e => e.name));
+  for (const file of snpFiles) {
+    if (existing.has(file.name)) continue;
+    entries.push({ id: nextId++, file, name: file.name, status: 'waiting', message: '', output: null, inFmt: null, n: null });
+  }
+  render();
+}
+
+fileInput.addEventListener('change', e => addFiles(e.target.files));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  addFiles(e.dataTransfer.files);
+});
+
+// ── Format buttons ─────────────────────────────────────────────────────────
+document.querySelectorAll('.fmt-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    format = btn.dataset.fmt;
+    document.querySelectorAll('.fmt-btn').forEach(b => b.classList.toggle('active', b === btn));
+    fmtDesc.textContent = FORMAT_DESC[format];
+    // reset conversion state when format changes
+    entries.forEach(e => { e.status = 'waiting'; e.message = ''; e.output = null; });
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
