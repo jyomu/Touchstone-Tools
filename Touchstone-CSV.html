@@ -475,6 +475,7 @@ function drawChart(key) {
 
   const freqs = freqData.map(d => d.freq);
   const vals  = freqData.map(d => d.pairs[pairIdx][0]);
+  const vals2 = freqData.map(d => d.pairs[pairIdx][1]);
 
   const ctx = previewCanvas.getContext('2d');
   const W = previewCanvas.width;
@@ -490,7 +491,9 @@ function drawChart(key) {
   ctx.fillRect(0, 0, W, H);
 
   const minF = freqs[0], maxF = freqs[freqs.length - 1];
-  let minV = vals.reduce((a, b) => a < b ? a : b), maxV = vals.reduce((a, b) => a > b ? a : b);
+  const allVals = [...vals, ...vals2];
+  let minV = allVals.reduce((a, b) => a < b ? a : b);
+  let maxV = allVals.reduce((a, b) => a > b ? a : b);
   if (minV === maxV) { minV -= 1; maxV += 1; }
   const padV = (maxV - minV) * 0.08;
   minV -= padV; maxV += padV;
@@ -543,36 +546,50 @@ function drawChart(key) {
   ctx.rect(PAD.left, PAD.top, plotW, plotH);
   ctx.stroke();
 
-  // Line
-  ctx.beginPath();
-  ctx.strokeStyle = '#1D9E75';
-  ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
-  for (let k = 0; k < freqs.length; k++) {
-    const x = sx(freqs[k]);
-    const y = sy(vals[k]);
-    k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
-  ctx.stroke();
+  const drawLine = (data, color) => {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    for (let k = 0; k < freqs.length; k++) {
+      const x = sx(freqs[k]);
+      const y = sy(data[k]);
+      k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  };
+
+  drawLine(vals,  '#1D9E75');
+  drawLine(vals2, '#E07B4A');
 
   // Axis labels
-  const [colA] = colHeaders(inFmt, key);
   ctx.fillStyle = '#6B6860';
   ctx.font = `11px 'IBM Plex Mono', monospace`;
   ctx.textAlign = 'center';
   ctx.fillText(`Freq [${freqUnit}]`, PAD.left + plotW / 2, H - 6);
 
-  ctx.save();
-  ctx.translate(14, PAD.top + plotH / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText(colA, 0, 0);
-  ctx.restore();
-
-  // Title
+  // Title + legend
+  const [colA, colB] = colHeaders(inFmt, key);
   ctx.fillStyle = '#1C1B18';
   ctx.font = `500 12px 'IBM Plex Mono', monospace`;
   ctx.textAlign = 'left';
   ctx.fillText(`S${key}`, PAD.left, 18);
+
+  const legendX = PAD.left + 36;
+  const legendY = 13;
+  const legendGap = 120;
+  ctx.font = `11px 'IBM Plex Mono', monospace`;
+  [['#1D9E75', colA], ['#E07B4A', colB]].forEach(([color, label], idx) => {
+    const lx = legendX + idx * legendGap;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lx, legendY);
+    ctx.lineTo(lx + 16, legendY);
+    ctx.stroke();
+    ctx.fillStyle = '#6B6860';
+    ctx.fillText(label, lx + 20, legendY + 4);
+  });
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────
