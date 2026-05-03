@@ -394,7 +394,7 @@ canvas#previewCanvas {
   <div class="preview-wrap">
     <div class="preview-title" id="previewTitle">—</div>
     <div class="preview-canvas-wrap">
-      <canvas id="previewCanvas" width="800" height="300"></canvas>
+      <canvas id="previewCanvas" width="800" height="500"></canvas>
     </div>
   </div>
 </div>
@@ -475,104 +475,122 @@ function drawChart(key) {
 
   const freqs = freqData.map(d => d.freq);
   const vals  = freqData.map(d => d.pairs[pairIdx][0]);
+  const vals2 = freqData.map(d => d.pairs[pairIdx][1]);
+  const [colA, colB] = colHeaders(inFmt, key);
 
   const ctx = previewCanvas.getContext('2d');
   const W = previewCanvas.width;
   const H = previewCanvas.height;
 
-  const PAD = { top: 28, right: 24, bottom: 46, left: 62 };
-  const plotW = W - PAD.left - PAD.right;
-  const plotH = H - PAD.top - PAD.bottom;
+  const PAD_LEFT = 62, PAD_RIGHT = 24, PAD_TOP = 28, PAD_BOT = 46, GAP = 24;
+  const plotW = W - PAD_LEFT - PAD_RIGHT;
+  const plotH = Math.floor((H - PAD_TOP - PAD_BOT - GAP) / 2);
+  const top1  = PAD_TOP;
+  const top2  = PAD_TOP + plotH + GAP;
+
+  const GRID_COLOR = '#D8D5CE';
+  const TEXT_COLOR = '#9E9B93';
 
   // Clear
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#FDFCFA';
   ctx.fillRect(0, 0, W, H);
 
-  const minF = freqs[0], maxF = freqs[freqs.length - 1];
-  let minV = vals.reduce((a, b) => a < b ? a : b), maxV = vals.reduce((a, b) => a > b ? a : b);
-  if (minV === maxV) { minV -= 1; maxV += 1; }
-  const padV = (maxV - minV) * 0.08;
-  minV -= padV; maxV += padV;
-
-  const sx = f => PAD.left + (f - minF) / (maxF - minF) * plotW;
-  const sy = v => PAD.top  + (1 - (v - minV) / (maxV - minV)) * plotH;
-
-  // Grid lines
-  const GRID_COLOR = '#D8D5CE';
-  const TEXT_COLOR = '#9E9B93';
-  ctx.strokeStyle = GRID_COLOR;
-  ctx.lineWidth = 1;
-  ctx.font = `11px 'IBM Plex Mono', monospace`;
-  ctx.fillStyle = TEXT_COLOR;
-  ctx.textAlign = 'right';
-
-  const yTicks = 5;
-  for (let t = 0; t <= yTicks; t++) {
-    const v = minV + (maxV - minV) * (t / yTicks);
-    const y = sy(v);
-    ctx.beginPath();
-    ctx.moveTo(PAD.left, y);
-    ctx.lineTo(PAD.left + plotW, y);
-    ctx.setLineDash([3, 3]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillText(v.toFixed(2), PAD.left - 6, y + 4);
-  }
-
-  const xTicks = Math.min(6, freqs.length - 1);
-  ctx.textAlign = 'center';
-  for (let t = 0; t <= xTicks; t++) {
-    const f = minF + (maxF - minF) * (t / xTicks);
-    const x = sx(f);
-    ctx.beginPath();
-    ctx.moveTo(x, PAD.top);
-    ctx.lineTo(x, PAD.top + plotH);
-    ctx.setLineDash([3, 3]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = TEXT_COLOR;
-    ctx.fillText(f.toFixed(3), x, PAD.top + plotH + 16);
-  }
-
-  // Axes
-  ctx.strokeStyle = '#BFBBAF';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.rect(PAD.left, PAD.top, plotW, plotH);
-  ctx.stroke();
-
-  // Line
-  ctx.beginPath();
-  ctx.strokeStyle = '#1D9E75';
-  ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
-  for (let k = 0; k < freqs.length; k++) {
-    const x = sx(freqs[k]);
-    const y = sy(vals[k]);
-    k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-
-  // Axis labels
-  const [colA] = colHeaders(inFmt, key);
-  ctx.fillStyle = '#6B6860';
-  ctx.font = `11px 'IBM Plex Mono', monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText(`Freq [${freqUnit}]`, PAD.left + plotW / 2, H - 6);
-
-  ctx.save();
-  ctx.translate(14, PAD.top + plotH / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText(colA, 0, 0);
-  ctx.restore();
-
   // Title
   ctx.fillStyle = '#1C1B18';
   ctx.font = `500 12px 'IBM Plex Mono', monospace`;
   ctx.textAlign = 'left';
-  ctx.fillText(`S${key}`, PAD.left, 18);
+  ctx.fillText(`S${key}`, PAD_LEFT, 18);
+
+  // Freq axis label
+  ctx.fillStyle = '#6B6860';
+  ctx.font = `11px 'IBM Plex Mono', monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText(`Freq [${freqUnit}]`, PAD_LEFT + plotW / 2, H - 6);
+
+  const minF = freqs[0], maxF = freqs[freqs.length - 1];
+  const sx = f => PAD_LEFT + (f - minF) / (maxF - minF) * plotW;
+
+  const drawSubplot = (data, color, label, topY, drawXLabels) => {
+    let minV = data.reduce((a, b) => a < b ? a : b);
+    let maxV = data.reduce((a, b) => a > b ? a : b);
+    if (minV === maxV) { minV -= 1; maxV += 1; }
+    const padV = (maxV - minV) * 0.08;
+    minV -= padV; maxV += padV;
+    const sy = v => topY + (1 - (v - minV) / (maxV - minV)) * plotH;
+
+    // Y grid + tick labels
+    ctx.lineWidth = 1;
+    ctx.font = `11px 'IBM Plex Mono', monospace`;
+    ctx.textAlign = 'right';
+    const yTicks = 5;
+    for (let t = 0; t <= yTicks; t++) {
+      const v = minV + (maxV - minV) * (t / yTicks);
+      const y = sy(v);
+      ctx.strokeStyle = GRID_COLOR;
+      ctx.beginPath();
+      ctx.moveTo(PAD_LEFT, y);
+      ctx.lineTo(PAD_LEFT + plotW, y);
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = TEXT_COLOR;
+      ctx.fillText(v.toFixed(2), PAD_LEFT - 6, y + 4);
+    }
+
+    // X grid + tick labels
+    const xTicks = Math.min(6, freqs.length - 1);
+    ctx.textAlign = 'center';
+    for (let t = 0; t <= xTicks; t++) {
+      const f = minF + (maxF - minF) * (t / xTicks);
+      const x = sx(f);
+      ctx.strokeStyle = GRID_COLOR;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, topY);
+      ctx.lineTo(x, topY + plotH);
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (drawXLabels) {
+        ctx.fillStyle = TEXT_COLOR;
+        ctx.fillText(f.toFixed(3), x, topY + plotH + 16);
+      }
+    }
+
+    // Border
+    ctx.strokeStyle = '#BFBBAF';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.rect(PAD_LEFT, topY, plotW, plotH);
+    ctx.stroke();
+
+    // Trace
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    for (let k = 0; k < freqs.length; k++) {
+      const x = sx(freqs[k]);
+      const y = sy(data[k]);
+      k === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Y-axis label (rotated)
+    ctx.save();
+    ctx.fillStyle = '#6B6860';
+    ctx.font = `11px 'IBM Plex Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.translate(14, topY + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  };
+
+  drawSubplot(vals,  '#1D9E75', colA, top1, false);
+  drawSubplot(vals2, '#E07B4A', colB, top2, true);
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────
