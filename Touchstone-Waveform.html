@@ -178,6 +178,8 @@ header {
 .sparm-grid {
   display: grid;
   gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
 }
 .sp-item {
   display: flex;
@@ -440,7 +442,7 @@ header {
     <div class="panel-title">表示モード</div>
     <div class="btn-row" id="modeBtns">
       <button class="seg-btn active" data-mode="dB">dB</button>
-      <button class="seg-btn" data-mode="phase">位相</button>
+      <button class="seg-btn" data-mode="phase">位相(UW)</button>
       <button class="seg-btn" data-mode="gd">群遅延</button>
       <button class="seg-btn" data-mode="real">実部</button>
       <button class="seg-btn" data-mode="imag">虚部</button>
@@ -457,7 +459,7 @@ header {
 
   <!-- BW detection -->
   <div class="panel">
-    <div class="panel-title">帯域幅検出</div>
+    <div class="panel-title">帯域幅検出 <span style="font-weight:400;text-transform:none;letter-spacing:0">(BPF用)</span></div>
     <div class="bw-row">
       <span class="bw-label">トレース</span>
       <select class="bw-select" id="bwTrace"></select>
@@ -532,7 +534,7 @@ const PALETTE = ['#1D9E75','#E07B4A','#4A7CB5','#C94F7C','#7A5EA7','#B5A34A','#4
 const PAD = { left: 60, right: 16, top: 20, bottom: 44 };
 const SMITH_PAD = 28;
 const MODE_UNIT = { dB: 'dB', phase: '°', gd: 'ns', real: '', imag: '', smith: '' };
-const MODE_LABEL = { dB: 'dB', phase: '位相 [°]', gd: '群遅延 [ns]', real: '実部', imag: '虚部', smith: 'スミス' };
+const MODE_LABEL = { dB: 'dB', phase: '位相(UW) [°]', gd: '群遅延 [ns]', real: '実部', imag: '虚部', smith: 'スミス' };
 
 // ── State ──────────────────────────────────────────────────────────────────
 let files       = [];
@@ -615,6 +617,7 @@ function computeGroupDelay(freqHz, phaseUnwrapDeg) {
 }
 
 function nearestIdx(arr, v) {
+  if (!arr.length) return -1;
   let best = 0, bestD = Math.abs(arr[0] - v);
   for (let i = 1; i < arr.length; i++) {
     const d = Math.abs(arr[i] - v);
@@ -721,7 +724,8 @@ function getDataArray(computed, mode) {
   if (mode === 'phase') return computed.phase;
   if (mode === 'gd')    return computed.gd;
   if (mode === 'real')  return computed.real;
-  return computed.imag;
+  if (mode === 'imag')  return computed.imag;
+  return null; // 'smith' など
 }
 
 function getVisibleTraces() {
@@ -822,7 +826,7 @@ function drawRect() {
   const log = viewState.freqLog && fMin > 0;
 
   // Background
-  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#FDFCFA';
+  ctx.fillStyle = '#FDFCFA';
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#F9F8F5';
   ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
@@ -925,7 +929,6 @@ function drawRect() {
     ctx.moveTo(x, PAD.top);
     ctx.lineTo(x, PAD.top + plotH);
     ctx.stroke();
-    ctx.setLineDash([]);
 
     // Dots on each trace at marker
     for (const { computed, fileEntry } of traces) {
@@ -1088,24 +1091,42 @@ function drawSmith() {
 
   // Traces (Γ plane = S-param in RI)
   const traces = getVisibleTraces();
-  for (const { fileEntry, computed } of traces) {
+  let hasOffDiag = false;
+  for (const { fileEntry, key, computed } of traces) {
     const { real, imag } = computed;
+    const isDiag = key.length === 2 && key[0] === key[1];
+    if (!isDiag) hasOffDiag = true;
+    ctx.save();
     ctx.beginPath();
     ctx.strokeStyle = fileEntry.color;
-    ctx.lineWidth   = 1.75;
+    ctx.lineWidth   = isDiag ? 1.75 : 1.25;
+    ctx.globalAlpha = isDiag ? 1 : 0.5;
+    if (!isDiag) ctx.setLineDash([5, 3]);
     ctx.lineJoin    = 'round';
     for (let i = 0; i < real.length; i++) {
       const { x, y } = gToXY(real[i], imag[i]);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
+    ctx.restore();
 
-    // Start/end markers
+    // Start dot
     if (real.length) {
       const s = gToXY(real[0], imag[0]);
       ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 2 * Math.PI);
-      ctx.fillStyle = fileEntry.color; ctx.fill();
+      ctx.fillStyle = isDiag ? fileEntry.color : 'transparent';
+      ctx.strokeStyle = fileEntry.color;
+      ctx.lineWidth = 1;
+      ctx.fill(); ctx.stroke();
     }
+  }
+
+  // Off-diagonal warning note
+  if (hasOffDiag) {
+    ctx.fillStyle = '#854F0B';
+    ctx.font = '9px \'IBM Plex Mono\', monospace';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillText('破線: Sij (i≠j) は参考表示', W - 8, H - 8);
   }
 
   // Smith markers
@@ -1142,11 +1163,18 @@ function redraw() {
 function pixelToSnappedFreq(px) {
   const traces = getVisibleTraces();
   if (!traces.length) return null;
-  const { fMin, fMax }  = getFreqRange();
-  const { plotW }       = plotDims();
-  const f               = xToF(px, fMin, fMax, plotW, viewState.freqLog);
-  const idx             = nearestIdx(traces[0].computed.freqHz, f);
-  return traces[0].computed.freqHz[idx];
+  const { fMin, fMax } = getFreqRange();
+  const { plotW }      = plotDims();
+  const f              = xToF(px, fMin, fMax, plotW, viewState.freqLog);
+  // Snap to the nearest data point across all visible traces
+  let bestFreq = null, bestDist = Infinity;
+  for (const { computed } of traces) {
+    const idx = nearestIdx(computed.freqHz, f);
+    if (idx < 0) continue;
+    const dist = Math.abs(computed.freqHz[idx] - f);
+    if (dist < bestDist) { bestDist = dist; bestFreq = computed.freqHz[idx]; }
+  }
+  return bestFreq;
 }
 
 function getMarkerDisplay(mk) {
@@ -1155,11 +1183,20 @@ function getMarkerDisplay(mk) {
   if (!traces.length) return formatFreq(mk.freqHz);
   const parts = [`<span>${formatFreq(mk.freqHz)}</span>`];
   for (const { fileEntry, key, computed } of traces) {
-    const arr = getDataArray(computed, viewState.mode);
-    const idx = nearestIdx(computed.freqHz, mk.freqHz);
-    const v   = arr[idx];
+    const arr  = getDataArray(computed, viewState.mode);
+    const idx  = nearestIdx(computed.freqHz, mk.freqHz);
+    if (idx < 0) continue;
     const name = fileEntry.name.replace(/\.s\d+p$/i, '').slice(-10);
-    parts.push(`<span style="color:${fileEntry.color}">${name} S${key}: ${formatVal(v, viewState.mode)}</span>`);
+    let valStr;
+    if (!arr) {
+      // smith mode: show |Γ| and phase
+      const mag   = Math.sqrt(computed.real[idx] ** 2 + computed.imag[idx] ** 2);
+      const phase = Math.atan2(computed.imag[idx], computed.real[idx]) * 180 / Math.PI;
+      valStr = `|Γ|=${mag.toFixed(4)} ∠${phase.toFixed(2)}°`;
+    } else {
+      valStr = formatVal(arr[idx], viewState.mode);
+    }
+    parts.push(`<span style="color:${fileEntry.color}">${name} S${key}: ${valStr}</span>`);
   }
   return `<div class="mk-row">${parts.join('')}</div>`;
 }
@@ -1176,10 +1213,15 @@ function updateMarkerPanel() {
     if (traces.length) {
       const { computed } = traces[0];
       const arr  = getDataArray(computed, viewState.mode);
-      const v0   = arr[nearestIdx(computed.freqHz, m0.freqHz)];
-      const v1   = arr[nearestIdx(computed.freqHz, m1.freqHz)];
-      if (isFinite(v0) && isFinite(v1)) {
-        dValStr = `  ΔY: ${formatVal(v1 - v0, viewState.mode)}`;
+      if (arr) {
+        const i0 = nearestIdx(computed.freqHz, m0.freqHz);
+        const i1 = nearestIdx(computed.freqHz, m1.freqHz);
+        if (i0 >= 0 && i1 >= 0) {
+          const v0 = arr[i0], v1 = arr[i1];
+          if (isFinite(v0) && isFinite(v1)) {
+            dValStr = `  ΔY: ${formatVal(v1 - v0, viewState.mode)}`;
+          }
+        }
       }
     }
     mkDelta.innerHTML = `<span>ΔF: ${formatFreq(df)}${dValStr}</span>`;
@@ -1196,8 +1238,41 @@ function updateStatsPanel() {
   }
   const mode = viewState.mode;
   const { fMin, fMax } = getFreqRange();
+
+  if (mode === 'smith') {
+    // Smith mode: show |Γ| (return loss) stats
+    const rows = traces.map(({ fileEntry, key, computed }) => {
+      const { real, imag, freqHz } = computed;
+      let magMin = Infinity, magMax = -Infinity, peakF = 0, minF = 0;
+      for (let i = 0; i < freqHz.length; i++) {
+        if (freqHz[i] < fMin || freqHz[i] > fMax) continue;
+        const mag = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+        if (mag > magMax) { magMax = mag; peakF = freqHz[i]; }
+        if (mag < magMin) { magMin = mag; minF  = freqHz[i]; }
+      }
+      const rlMax = isFinite(magMax) && magMax > 0 ? (20 * Math.log10(magMax)).toFixed(3) + ' dB' : '—';
+      const rlMin = isFinite(magMin) && magMin > 0 ? (20 * Math.log10(magMin)).toFixed(3) + ' dB' : '—';
+      const name  = fileEntry.name.replace(/\.s\d+p$/i, '').slice(-14);
+      return `<tr>
+        <td><span class="c-swatch" style="background:${fileEntry.color}"></span>${TT.escHtml(name)} S${key}</td>
+        <td>${isFinite(magMax) ? magMax.toFixed(4) : '—'}</td>
+        <td>${rlMax}</td>
+        <td>${isFinite(magMax) ? formatFreq(peakF) : '—'}</td>
+        <td>${isFinite(magMin) ? magMin.toFixed(4) : '—'}</td>
+        <td>${rlMin}</td>
+        <td>${isFinite(magMin) ? formatFreq(minF) : '—'}</td>
+      </tr>`;
+    }).join('');
+    statsContent.innerHTML = `<table class="stats-table">
+      <thead><tr><th>トレース</th><th>|Γ|max</th><th>[dB]</th><th>周波数</th><th>|Γ|min</th><th>[dB]</th><th>周波数</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    return;
+  }
+
   const rows = traces.map(({ fileEntry, key, computed }) => {
     const arr  = getDataArray(computed, mode);
+    if (!arr) return '';
     const fHz  = computed.freqHz;
     let vMin =  Infinity, vMax = -Infinity, peakF = 0, minF = 0;
     for (let i = 0; i < arr.length; i++) {
@@ -1231,6 +1306,10 @@ function findBandwidth(computed, dbLevel) {
   for (let i = 1; i < N; i++) { if (db[i] > db[peakIdx]) peakIdx = i; }
   const threshold = db[peakIdx] + dbLevel;
 
+  // Warn if peak is at an edge (LPF/HPF など BPF 以外の可能性)
+  const edgeWarning = peakIdx < 2 || peakIdx > N - 3
+    ? 'ピークが測定端にあります。LPF/HPF には正確な帯域幅を算出できない場合があります。' : null;
+
   let loIdx = peakIdx;
   while (loIdx > 0 && db[loIdx] >= threshold) loIdx--;
   let hiIdx = peakIdx;
@@ -1250,7 +1329,7 @@ function findBandwidth(computed, dbLevel) {
     fHi = freqHz[hiIdx - 1] + t * (freqHz[hiIdx] - freqHz[hiIdx - 1]);
   }
   return { fLow: fLo, fHigh: fHi, bw: fHi - fLo,
-           peakDb: db[peakIdx], peakFreq: freqHz[peakIdx], threshold };
+           peakDb: db[peakIdx], peakFreq: freqHz[peakIdx], threshold, edgeWarning };
 }
 
 function renderBwTraceSelect() {
@@ -1533,11 +1612,14 @@ document.getElementById('bwRunBtn').addEventListener('click', () => {
     bwResult.innerHTML = '<span class="bw-err">帯域幅の検出に失敗しました</span>';
     return;
   }
+  const warnHtml = result.edgeWarning
+    ? `<span class="bw-err" style="display:block;margin-top:4px">⚠ ${result.edgeWarning}</span>` : '';
   bwResult.innerHTML = `
     帯域幅: <span class="bw-val">${formatBW(result.bw)}</span><br>
     Flo: <span class="bw-val">${formatFreq(result.fLow)}</span><br>
     Fhi: <span class="bw-val">${formatFreq(result.fHigh)}</span><br>
     ピーク: <span class="bw-val">${result.peakDb.toFixed(3)} dB @ ${formatFreq(result.peakFreq)}</span>
+    ${warnHtml}
   `;
 });
 
@@ -1562,12 +1644,17 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
   if (!traces.length) return;
   const mode = viewState.mode;
   const unit = MODE_UNIT[mode];
+  const isSmith = mode === 'smith';
 
-  // Each trace gets its own Freq + Value columns
+  // Each trace gets its own Freq + Value column(s)
   const headers = ['No'];
   for (const { fileEntry, key } of traces) {
     const name = fileEntry.name.replace(/\.s\d+p$/i, '');
-    headers.push(`Freq_${name}_S${key}[Hz]`, `S${key}_${mode}${unit ? '['+unit+']' : ''}`);
+    if (isSmith) {
+      headers.push(`Freq_${name}_S${key}[Hz]`, `S${key}_Re`, `S${key}_Im`, `S${key}_mag[dB]`);
+    } else {
+      headers.push(`Freq_${name}_S${key}[Hz]`, `S${key}_${mode}${unit ? '['+unit+']' : ''}`);
+    }
   }
 
   const maxN = Math.max(...traces.map(t => t.computed.freqHz.length));
@@ -1575,11 +1662,19 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
   for (let i = 0; i < maxN; i++) {
     const row = [i + 1];
     for (const { computed } of traces) {
-      const arr = getDataArray(computed, mode);
       if (i < computed.freqHz.length) {
-        row.push(computed.freqHz[i].toExponential(8), arr[i].toExponential(8));
+        if (isSmith) {
+          const re  = computed.real[i], im = computed.imag[i];
+          const mag = Math.sqrt(re * re + im * im);
+          const db  = mag > 0 ? 20 * Math.log10(mag) : -999;
+          row.push(computed.freqHz[i].toExponential(8),
+                   re.toExponential(8), im.toExponential(8), db.toExponential(8));
+        } else {
+          const arr = getDataArray(computed, mode);
+          row.push(computed.freqHz[i].toExponential(8), arr[i].toExponential(8));
+        }
       } else {
-        row.push('', '');
+        row.push(...(isSmith ? ['','','',''] : ['','']));
       }
     }
     lines.push(row.join(','));
@@ -1599,17 +1694,21 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
 // ── File loading ───────────────────────────────────────────────────────────
 async function loadFiles(fileList_) {
   const snpFiles = Array.from(fileList_).filter(f => /\.s\d+p$/i.test(f.name));
-  const existNames = new Set(files.map(f => f.name));
+  // Dedup by name + size (allows same name from different directories/revisions if size differs)
+  const existKeys = new Set(files.map(f => f.fileKey));
   const errors = [];
 
   for (const file of snpFiles) {
-    if (existNames.has(file.name)) continue;
+    const fileKey = `${file.name}:${file.size}`;
+    if (existKeys.has(fileKey)) continue;
+    existKeys.add(fileKey);
     try {
       const n      = TT.portCount(file.name);
       const text   = await file.text();
       const parsed = TT.parseTouchstone(text, n);
       const fe     = {
         id:      nextId++,
+        fileKey,
         name:    file.name,
         n,
         parsed,
