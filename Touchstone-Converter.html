@@ -329,6 +329,20 @@ header {
   margin-top: 0.25rem;
   word-break: break-word;
 }
+
+.cell-meta {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.cell-actions {
+  text-align: right;
+  white-space: nowrap;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
 </style>
 </head>
 <body>
@@ -404,7 +418,6 @@ const FORMAT_DESC = {
 let entries  = /** @type {FileEntry[]} */ ([]);
 let nextId   = 0;
 let format   = 'DB';
-let converted = false;
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const dropZone   = document.getElementById('dropZone');
@@ -504,12 +517,12 @@ function render() {
         ${e.message ? `<div class="error-msg">${TT.escHtml(e.message)}</div>` : ''}
       </td>
       <td class="file-size">${TT.fmt_size(e.file.size)}</td>
-      <td style="font-family:var(--mono); font-size:0.7rem; color:var(--text-faint);">${e.inFmt ?? '—'}</td>
-      <td style="font-family:var(--mono); font-size:0.7rem; color:var(--text-faint);">${e.n != null ? `S${e.n}P` : '—'}</td>
+      <td class="cell-meta">${e.inFmt ?? '—'}</td>
+      <td class="cell-meta">${e.n != null ? `S${e.n}P` : '—'}</td>
       <td>${statusBadge(e)}</td>
-      <td style="text-align:right; white-space:nowrap; display:flex; gap:4px; justify-content:flex-end;">
-        <button class="dl-btn" ${e.status !== 'ok' ? 'disabled' : ''} onclick="downloadOne(${e.id})">↓ DL</button>
-        <button class="dl-btn-remove" onclick="removeEntry(${e.id})">✕</button>
+      <td class="cell-actions">
+        <button class="dl-btn" ${e.status !== 'ok' ? 'disabled' : ''} data-action="dl" data-id="${e.id}">↓ DL</button>
+        <button class="dl-btn-remove" data-action="remove" data-id="${e.id}">✕</button>
       </td>
     </tr>
   `).join('');
@@ -530,7 +543,7 @@ function render() {
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────
-window.downloadOne = function(id) {
+function downloadOne(id) {
   const e = entries.find(x => x.id === id);
   if (!e?.output) return;
   const blob = new Blob([e.output], { type: 'text/plain' });
@@ -538,12 +551,20 @@ window.downloadOne = function(id) {
   const a    = Object.assign(document.createElement('a'), { href: url, download: e.name });
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
+}
 
-window.removeEntry = function(id) {
+function removeEntry(id) {
   entries = entries.filter(e => e.id !== id);
   render();
-};
+}
+
+listWrap.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  if (btn.dataset.action === 'dl') downloadOne(id);
+  if (btn.dataset.action === 'remove') removeEntry(id);
+});
 
 convertBtn.addEventListener('click', async () => {
   convertBtn.disabled = true;
@@ -576,7 +597,7 @@ convertBtn.addEventListener('click', async () => {
   convertBtn.textContent = '変換する';
 });
 
-dlAllBtn.addEventListener('click', async () => {
+dlAllBtn.addEventListener('click', () => {
   const okEntries = entries.filter(e => e.status === 'ok' && e.output);
   if (!okEntries.length) return;
 
