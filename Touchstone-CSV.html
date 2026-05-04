@@ -6,38 +6,9 @@
 <title>Touchstone CSV Extractor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/shared.css">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg: #F5F4F1;
-  --surface: #FDFCFA;
-  --border: #D8D5CE;
-  --border-mid: #BFBBAF;
-  --text: #1C1B18;
-  --text-muted: #6B6860;
-  --text-faint: #9E9B93;
-  --accent: #0A5C47;
-  --accent-bg: #E1F5EE;
-  --accent-mid: #1D9E75;
-  --success: #1D9E75;
-  --error: #993C1D;
-  --error-bg: #FAECE7;
-  --warning: #854F0B;
-  --warning-bg: #FAEEDA;
-  --mono: 'IBM Plex Mono', 'Cascadia Code', 'Menlo', monospace;
-  --sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
-  --radius: 6px;
-  --radius-lg: 10px;
-}
-
-body {
-  font-family: var(--sans);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  padding: 2rem 1rem;
-}
+body { padding: 2rem 1rem; }
 
 .app {
   max-width: 860px;
@@ -62,11 +33,6 @@ header {
 }
 
 .logo span { color: var(--accent-mid); }
-
-.subtitle {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
 
 .panel {
   background: var(--surface);
@@ -96,34 +62,10 @@ header {
   position: relative;
 }
 
-.drop-zone:hover, .drop-zone.drag-over {
-  border-color: var(--accent-mid);
-  background: var(--accent-bg);
-}
-
-.drop-zone input[type="file"] {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-  width: 100%;
-  height: 100%;
-}
-
-.drop-icon {
-  display: block;
-  width: 32px;
-  height: 32px;
-  margin: 0 auto 0.75rem;
-  color: var(--text-faint);
-}
-
 .drop-label {
   font-size: 0.875rem;
   color: var(--text-muted);
 }
-
-.drop-label strong { color: var(--accent); font-weight: 500; }
 
 .drop-sub {
   font-size: 0.75rem;
@@ -318,20 +260,7 @@ canvas#previewCanvas {
   border: 1px solid;
 }
 
-.btn-primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-.btn-primary:hover { background: #0A4F3E; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.btn-secondary {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--border);
-}
-.btn-secondary:hover { border-color: var(--border-mid); background: var(--bg); }
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-sm {
@@ -411,6 +340,7 @@ canvas#previewCanvas {
 
 <script src="lib/zip.js"></script>
 <script src="lib/touchstone.js"></script>
+<script src="lib/ui-helpers.js"></script>
 <script type="module">
 // ── State ──────────────────────────────────────────────────────────────────
 let parsed   = null;  // { comments, optionLine, inFmt, freqData, n, basename, freqUnit }
@@ -796,13 +726,9 @@ fileInput.addEventListener('change', e => {
   if (e.target.files[0]) loadFile(e.target.files[0]);
 });
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-  const snpFiles = Array.from(e.dataTransfer.files).filter(f => /\.s\d+p$/i.test(f.name));
-  if (snpFiles[0]) loadFile(snpFiles[0]);
+TT.setupDropZone(dropZone, files => {
+  const snp = TT.filterSnp(files);
+  if (snp[0]) loadFile(snp[0]);
 });
 
 // ── Canvas resize ──────────────────────────────────────────────────────────
