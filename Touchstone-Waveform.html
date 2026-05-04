@@ -278,14 +278,15 @@ header {
   background: var(--surface);
   position: relative;
 }
-#mainCanvas {
+#mainCanvas, #subCanvas {
   display: block;
   width: 100%;
-  height: 480px;
+  height: 240px;
   cursor: crosshair;
 }
-#mainCanvas.panning { cursor: grab; }
-#mainCanvas.grabbing { cursor: grabbing; }
+#mainCanvas.panning, #subCanvas.panning { cursor: grab; }
+#mainCanvas.grabbing, #subCanvas.grabbing { cursor: grabbing; }
+#subCanvas { border-top: 1px solid var(--border); }
 
 .status-bar {
   font-family: var(--mono);
@@ -398,7 +399,7 @@ header {
 
 <header>
   <div class="logo">Touchstone<span>·</span>Waveform</div>
-  <div class="subtitle">Sパラメータ波形解析ツール（dB / 位相 / 群遅延 / スミスチャート · 1〜9ポート対応）</div>
+  <div class="subtitle">Sパラメータ波形解析ツール（DB / MA / RI · スミスチャート · 1〜9ポート対応）</div>
   <a class="back-link" href="index.html">← Tools</a>
 </header>
 
@@ -439,21 +440,17 @@ header {
 
   <!-- Display options -->
   <div class="panel">
-    <div class="panel-title">表示モード</div>
-    <div class="btn-row" id="modeBtns">
-      <button class="seg-btn active" data-mode="dB">dB</button>
-      <button class="seg-btn" data-mode="phase">位相(UW)</button>
-      <button class="seg-btn" data-mode="gd">群遅延</button>
-      <button class="seg-btn" data-mode="real">実部</button>
-      <button class="seg-btn" data-mode="imag">虚部</button>
-      <button class="seg-btn" data-mode="smith">スミス</button>
+    <div class="panel-title">表示フォーマット</div>
+    <div class="btn-row" id="fmtBtns">
+      <button class="seg-btn active" data-fmt="DB">DB</button>
+      <button class="seg-btn" data-fmt="MA">MA</button>
+      <button class="seg-btn" data-fmt="RI">RI</button>
     </div>
-    <div class="toggle-row">
-      <span class="toggle-label">周波数軸</span>
-      <div class="btn-row">
-        <button class="seg-btn active" id="freqLinBtn" data-fscale="linear">線形</button>
-        <button class="seg-btn" id="freqLogBtn" data-fscale="log">対数</button>
-      </div>
+    <div class="panel-title" style="margin-top:0.625rem">グラフ種別</div>
+    <div class="btn-row" id="graphBtns">
+      <button class="seg-btn active" data-graph="linear">線形</button>
+      <button class="seg-btn" data-graph="log">対数</button>
+      <button class="seg-btn" data-graph="smith">スミス</button>
     </div>
   </div>
 
@@ -489,6 +486,7 @@ header {
 
   <div class="canvas-wrap" id="canvasWrap">
     <canvas id="mainCanvas"></canvas>
+    <canvas id="subCanvas"></canvas>
   </div>
 
   <div class="err-banner" id="errBanner"></div>
@@ -558,16 +556,18 @@ function getSparmDash(key) {
 
 const PAD = { left: 60, right: 16, top: 20, bottom: 44 };
 const SMITH_PAD = 28;
-const MODE_UNIT = { dB: 'dB', phase: '°', gd: 'ns', real: '', imag: '', smith: '' };
-const MODE_LABEL = { dB: 'dB', phase: '位相(UW) [°]', gd: '群遅延 [ns]', real: '実部', imag: '虚部', smith: 'スミス' };
+const FMT_UPPER_LABEL = { DB: 'dB', MA: '振幅', RI: '実部' };
+const FMT_LOWER_LABEL = { DB: '位相(UW) [°]', MA: '位相(UW) [°]', RI: '虚部' };
+const FMT_UPPER_UNIT  = { DB: 'dB', MA: '', RI: '' };
+const FMT_LOWER_UNIT  = { DB: '°', MA: '°', RI: '' };
 
 // ── State ──────────────────────────────────────────────────────────────────
 let files       = [];
 let nextId      = 0;
 let nextColor   = 0;
 let viewState   = {
-  mode:        'dB',
-  freqLog:     false,
+  displayFormat: 'DB',    // 'DB' | 'MA' | 'RI'
+  graphType:     'linear', // 'linear' | 'log' | 'smith'
   zoom:        { fMin: null, fMax: null },
   markers:     [null, null],
   activeSlot:  0,
@@ -580,6 +580,8 @@ let dpr = window.devicePixelRatio || 1;
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const canvas      = document.getElementById('mainCanvas');
 const ctx         = canvas.getContext('2d');
+const subCanvas   = document.getElementById('subCanvas');
+const subCtx      = subCanvas.getContext('2d');
 const canvasWrap  = document.getElementById('canvasWrap');
 const fileList    = document.getElementById('fileList');
 const sparmGrid   = document.getElementById('sparmGrid');
@@ -620,26 +622,6 @@ function unwrapPhase(phaseDeg) {
   return out;
 }
 
-function computeGroupDelay(freqHz, phaseUnwrapDeg) {
-  // GD = -d(phase_deg)/(360 * df) seconds → × 1e9 for ns
-  const N  = freqHz.length;
-  const gd = new Float64Array(N);
-  for (let i = 0; i < N; i++) {
-    let dPhi, dF;
-    if (i === 0) {
-      dPhi = phaseUnwrapDeg[1] - phaseUnwrapDeg[0];
-      dF   = freqHz[1] - freqHz[0];
-    } else if (i === N - 1) {
-      dPhi = phaseUnwrapDeg[N - 1] - phaseUnwrapDeg[N - 2];
-      dF   = freqHz[N - 1] - freqHz[N - 2];
-    } else {
-      dPhi = phaseUnwrapDeg[i + 1] - phaseUnwrapDeg[i - 1];
-      dF   = freqHz[i + 1] - freqHz[i - 1];
-    }
-    gd[i] = dF === 0 ? 0 : -(dPhi / (360 * dF)) * 1e9;
-  }
-  return gd;
-}
 
 function nearestIdx(arr, v) {
   if (!arr.length) return -1;
@@ -659,10 +641,9 @@ function formatFreq(hz) {
   return `${+hz.toPrecision(6)} Hz`;
 }
 
-function formatVal(v, mode) {
+function formatVal(v, unit) {
   if (!isFinite(v)) return '—';
-  const u = MODE_UNIT[mode];
-  return `${v.toFixed(mode === 'gd' ? 4 : 3)}${u ? ' ' + u : ''}`;
+  return `${v.toFixed(3)}${unit ? ' ' + unit : ''}`;
 }
 
 function formatBW(hz) {
@@ -716,6 +697,7 @@ function computeForKey(fileEntry, i, j) {
   const real    = new Float64Array(N);
   const imag    = new Float64Array(N);
   const db      = new Float64Array(N);
+  const mag     = new Float64Array(N);
   const rawPhase= new Float64Array(N);
 
   for (let k = 0; k < N; k++) {
@@ -723,14 +705,13 @@ function computeForKey(fileEntry, i, j) {
     const [a, b]= freqData[k].pairs[pairIdx];
     const [re, im] = toRI(a, b, inFmt);
     real[k] = re; imag[k] = im;
-    const mag   = Math.sqrt(re * re + im * im);
-    db[k]       = mag === 0 ? -999 : 20 * Math.log10(mag);
+    mag[k]      = Math.sqrt(re * re + im * im);
+    db[k]       = mag[k] === 0 ? -999 : 20 * Math.log10(mag[k]);
     rawPhase[k] = Math.atan2(im, re) * 180 / Math.PI;
   }
 
   const phase = unwrapPhase(rawPhase);
-  const gd    = computeGroupDelay(freqHz, phase);
-  return { key: `${i}${j}`, freqHz, db, phase, gd, real, imag };
+  return { key: `${i}${j}`, freqHz, db, mag, phase, real, imag };
 }
 
 function computeTraces(fileEntry) {
@@ -743,15 +724,22 @@ function computeTraces(fileEntry) {
   }
 }
 
-// ── Data accessors ─────────────────────────────────────────────────────────
-function getDataArray(computed, mode) {
-  if (mode === 'dB')    return computed.db;
-  if (mode === 'phase') return computed.phase;
-  if (mode === 'gd')    return computed.gd;
-  if (mode === 'real')  return computed.real;
-  if (mode === 'imag')  return computed.imag;
-  return null; // 'smith' など
+// ── Mode helpers ────────────────────────────────────────────────────────────
+function isSmithMode() { return viewState.graphType === 'smith'; }
+function isLogScale()  { return viewState.graphType === 'log'; }
+function getUpperArray(computed) {
+  if (viewState.displayFormat === 'DB') return computed.db;
+  if (viewState.displayFormat === 'MA') return computed.mag;
+  return computed.real;
 }
+function getLowerArray(computed) {
+  if (viewState.displayFormat === 'RI') return computed.imag;
+  return computed.phase;
+}
+function getUpperLabel() { return FMT_UPPER_LABEL[viewState.displayFormat]; }
+function getLowerLabel() { return FMT_LOWER_LABEL[viewState.displayFormat]; }
+function getUpperUnit()  { return FMT_UPPER_UNIT[viewState.displayFormat]; }
+function getLowerUnit()  { return FMT_LOWER_UNIT[viewState.displayFormat]; }
 
 function getVisibleTraces() {
   const result = [];
@@ -786,17 +774,17 @@ function getFreqRange() {
   };
 }
 
-function getYRange(traces, mode) {
+function getYRange(traces, getArr, skipLow) {
   let yMin =  Infinity, yMax = -Infinity;
   const { fMin, fMax } = getFreqRange();
   for (const { computed } of traces) {
-    const arr = getDataArray(computed, mode);
+    const arr = getArr(computed);
     const fHz = computed.freqHz;
     for (let i = 0; i < arr.length; i++) {
       if (fHz[i] < fMin || fHz[i] > fMax) continue;
       const v = arr[i];
       if (!isFinite(v)) continue;
-      if (mode === 'dB' && v < -200) continue;
+      if (skipLow && v < -200) continue;
       if (v < yMin) yMin = v;
       if (v > yMax) yMax = v;
     }
@@ -808,12 +796,12 @@ function getYRange(traces, mode) {
 }
 
 // ── Canvas coordinate transforms ───────────────────────────────────────────
-function plotDims() {
+function plotDims(c) {
   return {
-    W: canvas.clientWidth,
-    H: canvas.clientHeight,
-    plotW: canvas.clientWidth  - PAD.left - PAD.right,
-    plotH: canvas.clientHeight - PAD.top  - PAD.bottom,
+    W: c.clientWidth,
+    H: c.clientHeight,
+    plotW: c.clientWidth  - PAD.left - PAD.right,
+    plotH: c.clientHeight - PAD.top  - PAD.bottom,
   };
 }
 
@@ -839,107 +827,107 @@ function vToY(v, yMin, yMax, plotH) {
 }
 
 // ── Draw: rectangular chart ────────────────────────────────────────────────
-function drawRect() {
-  const { W, H, plotW, plotH } = plotDims();
-  ctx.save();
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
+function drawRect(c, cx, getArr, yLabel, skipLow) {
+  const { W, H, plotW, plotH } = plotDims(c);
+  cx.save();
+  cx.scale(dpr, dpr);
+  cx.clearRect(0, 0, W, H);
 
   const traces = getVisibleTraces();
   const { fMin, fMax } = getFreqRange();
-  const { yMin, yMax } = getYRange(traces, viewState.mode);
-  const log = viewState.freqLog && fMin > 0;
+  const { yMin, yMax } = getYRange(traces, getArr, skipLow);
+  const log = isLogScale() && fMin > 0;
 
   // Background
-  ctx.fillStyle = '#FDFCFA';
-  ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#F9F8F5';
-  ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+  cx.fillStyle = '#FDFCFA';
+  cx.fillRect(0, 0, W, H);
+  cx.fillStyle = '#F9F8F5';
+  cx.fillRect(PAD.left, PAD.top, plotW, plotH);
 
   // Grid
-  ctx.strokeStyle = '#E4E2DC';
-  ctx.lineWidth = 1;
+  cx.strokeStyle = '#E4E2DC';
+  cx.lineWidth = 1;
 
   const xTicks = log ? logFreqTicks(fMin, fMax) : niceTicks(fMin, fMax, 7);
   for (const f of xTicks) {
     const x = fToX(f, fMin, fMax, plotW, log);
     if (x < PAD.left - 1 || x > PAD.left + plotW + 1) continue;
-    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + plotH); ctx.stroke();
+    cx.beginPath(); cx.moveTo(x, PAD.top); cx.lineTo(x, PAD.top + plotH); cx.stroke();
   }
 
   const yTicks = niceTicks(yMin, yMax, 6);
   for (const v of yTicks) {
     const y = vToY(v, yMin, yMax, plotH);
     if (y < PAD.top - 1 || y > PAD.top + plotH + 1) continue;
-    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+    cx.beginPath(); cx.moveTo(PAD.left, y); cx.lineTo(PAD.left + plotW, y); cx.stroke();
   }
 
   // Axes border
-  ctx.strokeStyle = '#BFBBAF';
-  ctx.lineWidth   = 1;
-  ctx.strokeRect(PAD.left, PAD.top, plotW, plotH);
+  cx.strokeStyle = '#BFBBAF';
+  cx.lineWidth   = 1;
+  cx.strokeRect(PAD.left, PAD.top, plotW, plotH);
 
   // Tick labels: X axis
-  ctx.fillStyle   = '#6B6860';
-  ctx.font        = `${11 * Math.min(1, W / 600)}px 'IBM Plex Mono', monospace`;
-  ctx.textAlign   = 'center';
-  ctx.textBaseline= 'top';
+  cx.fillStyle   = '#6B6860';
+  cx.font        = `${11 * Math.min(1, W / 600)}px 'IBM Plex Mono', monospace`;
+  cx.textAlign   = 'center';
+  cx.textBaseline= 'top';
   for (const f of xTicks) {
     const x = fToX(f, fMin, fMax, plotW, log);
     if (x < PAD.left - 1 || x > PAD.left + plotW + 1) continue;
-    ctx.fillText(formatFreq(f), x, PAD.top + plotH + 5);
+    cx.fillText(formatFreq(f), x, PAD.top + plotH + 5);
   }
 
   // Y-axis label
-  ctx.save();
-  ctx.translate(12, PAD.top + plotH / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#9E9B93';
-  ctx.font = `10px 'IBM Plex Mono', monospace`;
-  ctx.fillText(MODE_LABEL[viewState.mode], 0, 0);
-  ctx.restore();
+  cx.save();
+  cx.translate(12, PAD.top + plotH / 2);
+  cx.rotate(-Math.PI / 2);
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillStyle = '#9E9B93';
+  cx.font = `10px 'IBM Plex Mono', monospace`;
+  cx.fillText(yLabel, 0, 0);
+  cx.restore();
 
   // Tick labels: Y axis
-  ctx.textAlign   = 'right';
-  ctx.textBaseline= 'middle';
-  ctx.font = `11px 'IBM Plex Mono', monospace`;
+  cx.textAlign   = 'right';
+  cx.textBaseline= 'middle';
+  cx.font = `11px 'IBM Plex Mono', monospace`;
   for (const v of yTicks) {
     const y = vToY(v, yMin, yMax, plotH);
     if (y < PAD.top - 1 || y > PAD.top + plotH + 1) continue;
-    ctx.fillText(v.toString(), PAD.left - 5, y);
+    cx.fillText(v.toString(), PAD.left - 5, y);
   }
 
   // Traces
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(PAD.left, PAD.top, plotW, plotH);
-  ctx.clip();
+  cx.save();
+  cx.beginPath();
+  cx.rect(PAD.left, PAD.top, plotW, plotH);
+  cx.clip();
 
   for (const { fileEntry, key, computed } of traces) {
-    const arr = getDataArray(computed, viewState.mode);
+    const arr = getArr(computed);
     const fHz = computed.freqHz;
-    ctx.beginPath();
-    ctx.strokeStyle = fileEntry.color;
-    ctx.lineWidth   = 1.75;
-    ctx.lineJoin    = 'round';
-    ctx.setLineDash(getSparmDash(key));
+    cx.beginPath();
+    cx.strokeStyle = fileEntry.color;
+    cx.lineWidth   = 1.75;
+    cx.lineJoin    = 'round';
+    cx.setLineDash(getSparmDash(key));
     let started = false;
     for (let i = 0; i < fHz.length; i++) {
       const f = fHz[i];
       const v = arr[i];
       if (!isFinite(v)) { started = false; continue; }
-      if (viewState.mode === 'dB' && v < -300) { started = false; continue; }
+      if (skipLow && v < -300) { started = false; continue; }
       const x = fToX(f, fMin, fMax, plotW, log);
       const y = vToY(v, yMin, yMax, plotH);
-      if (!started) { ctx.moveTo(x, y); started = true; }
-      else ctx.lineTo(x, y);
+      if (!started) { cx.moveTo(x, y); started = true; }
+      else cx.lineTo(x, y);
     }
-    ctx.stroke();
-    ctx.setLineDash([]);
+    cx.stroke();
+    cx.setLineDash([]);
   }
-  ctx.restore();
+  cx.restore();
 
   // Markers
   const mColors = ['#E07B4A', '#4A7CB5'];
@@ -948,96 +936,94 @@ function drawRect() {
     if (!mk) continue;
     const x = fToX(mk.freqHz, fMin, fMax, plotW, log);
     if (x < PAD.left || x > PAD.left + plotW) continue;
-    ctx.save();
-    ctx.strokeStyle = mColors[slot];
-    ctx.lineWidth   = 1.5;
-    if (slot === 1) { ctx.setLineDash([4, 3]); }
-    ctx.beginPath();
-    ctx.moveTo(x, PAD.top);
-    ctx.lineTo(x, PAD.top + plotH);
-    ctx.stroke();
+    cx.save();
+    cx.strokeStyle = mColors[slot];
+    cx.lineWidth   = 1.5;
+    if (slot === 1) { cx.setLineDash([4, 3]); }
+    cx.beginPath();
+    cx.moveTo(x, PAD.top);
+    cx.lineTo(x, PAD.top + plotH);
+    cx.stroke();
 
-    // Dots on each trace at marker
     for (const { computed, fileEntry } of traces) {
-      const arr  = getDataArray(computed, viewState.mode);
+      const arr  = getArr(computed);
       const idx  = nearestIdx(computed.freqHz, mk.freqHz);
       const v    = arr[idx];
-      if (!isFinite(v) || (viewState.mode === 'dB' && v < -300)) continue;
+      if (!isFinite(v) || (skipLow && v < -300)) continue;
       const y    = vToY(v, yMin, yMax, plotH);
       if (y < PAD.top || y > PAD.top + plotH) continue;
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, 2 * Math.PI);
-      ctx.fillStyle   = fileEntry.color;
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth   = 1.5;
-      ctx.stroke();
+      cx.beginPath();
+      cx.arc(x, y, 4, 0, 2 * Math.PI);
+      cx.fillStyle   = fileEntry.color;
+      cx.fill();
+      cx.strokeStyle = '#fff';
+      cx.lineWidth   = 1.5;
+      cx.stroke();
     }
 
-    // Label
-    ctx.fillStyle   = mColors[slot];
-    ctx.font        = `bold 10px 'IBM Plex Mono', monospace`;
-    ctx.textBaseline= 'bottom';
+    cx.fillStyle   = mColors[slot];
+    cx.font        = `bold 10px 'IBM Plex Mono', monospace`;
+    cx.textBaseline= 'bottom';
     const label     = `M${slot + 1}: ${formatFreq(mk.freqHz)}`;
-    const lw        = ctx.measureText(label).width;
+    const lw        = cx.measureText(label).width;
     const lx        = Math.min(x + 4, PAD.left + plotW - lw - 4);
-    ctx.fillText(label, lx, PAD.top + 14);
-    ctx.restore();
+    cx.fillText(label, lx, PAD.top + 14);
+    cx.restore();
   }
 
-  // Legend
-  if (traces.length) {
+  // Legend (upper chart only)
+  if (traces.length && c === canvas) {
     const items = traces.map(t => ({
       label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}`,
       color: t.fileEntry.color,
       dash:  getSparmDash(t.key),
     }));
     const lFont   = '10px \'IBM Plex Mono\', monospace';
-    ctx.font      = lFont;
+    cx.font      = lFont;
     const lPad    = 6, lH = 16, lSwW = 18;
-    const lMaxW   = items.reduce((m, it) => Math.max(m, ctx.measureText(it.label).width), 0);
+    const lMaxW   = items.reduce((m, it) => Math.max(m, cx.measureText(it.label).width), 0);
     const lBoxW   = lMaxW + lSwW + lPad * 3;
     const lBoxH   = items.length * lH + lPad * 2;
     const lX      = PAD.left + plotW - lBoxW - 6;
     const lY      = PAD.top + 6;
 
-    ctx.fillStyle   = 'rgba(253,252,250,0.88)';
-    ctx.strokeStyle = '#D8D5CE';
-    ctx.lineWidth   = 0.75;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.roundRect(lX, lY, lBoxW, lBoxH, 4);
-    ctx.fill();
-    ctx.stroke();
+    cx.fillStyle   = 'rgba(253,252,250,0.88)';
+    cx.strokeStyle = '#D8D5CE';
+    cx.lineWidth   = 0.75;
+    cx.setLineDash([]);
+    cx.beginPath();
+    cx.roundRect(lX, lY, lBoxW, lBoxH, 4);
+    cx.fill();
+    cx.stroke();
 
     items.forEach((it, idx) => {
       const iy = lY + lPad + idx * lH + lH / 2;
-      ctx.save();
-      ctx.strokeStyle = it.color;
-      ctx.lineWidth   = 2;
-      ctx.setLineDash(it.dash);
-      ctx.beginPath();
-      ctx.moveTo(lX + lPad, iy);
-      ctx.lineTo(lX + lPad + lSwW, iy);
-      ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle   = '#1C1B18';
-      ctx.textAlign   = 'left';
-      ctx.textBaseline= 'middle';
-      ctx.fillText(it.label, lX + lPad + lSwW + 4, iy);
+      cx.save();
+      cx.strokeStyle = it.color;
+      cx.lineWidth   = 2;
+      cx.setLineDash(it.dash);
+      cx.beginPath();
+      cx.moveTo(lX + lPad, iy);
+      cx.lineTo(lX + lPad + lSwW, iy);
+      cx.stroke();
+      cx.restore();
+      cx.fillStyle   = '#1C1B18';
+      cx.textAlign   = 'left';
+      cx.textBaseline= 'middle';
+      cx.fillText(it.label, lX + lPad + lSwW + 4, iy);
     });
   }
 
   // Empty state
-  if (!traces.length) {
-    ctx.fillStyle   = '#9E9B93';
-    ctx.font        = `14px 'IBM Plex Sans', sans-serif`;
-    ctx.textAlign   = 'center';
-    ctx.textBaseline= 'middle';
-    ctx.fillText('ファイルを読み込んでください', W / 2, H / 2);
+  if (!traces.length && c === canvas) {
+    cx.fillStyle   = '#9E9B93';
+    cx.font        = `14px 'IBM Plex Sans', sans-serif`;
+    cx.textAlign   = 'center';
+    cx.textBaseline= 'middle';
+    cx.fillText('ファイルを読み込んでください', W / 2, H / 2);
   }
 
-  ctx.restore();
+  cx.restore();
 }
 
 // ── Draw: Smith chart ──────────────────────────────────────────────────────
@@ -1189,9 +1175,29 @@ function drawSmith() {
   ctx.restore();
 }
 
+function updateCanvasLayout() {
+  if (isSmithMode()) {
+    canvas.style.height = '480px';
+    subCanvas.style.display = 'none';
+  } else {
+    canvas.style.height = '240px';
+    subCanvas.style.display = '';
+  }
+  dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(canvas.clientWidth  * dpr);
+  canvas.height = Math.round(canvas.clientHeight * dpr);
+  subCanvas.width  = Math.round(subCanvas.clientWidth  * dpr);
+  subCanvas.height = Math.round(subCanvas.clientHeight * dpr);
+}
+
 function redraw() {
-  if (viewState.mode === 'smith') drawSmith();
-  else drawRect();
+  if (isSmithMode()) {
+    drawSmith();
+  } else {
+    const isDb = viewState.displayFormat === 'DB';
+    drawRect(canvas, ctx, getUpperArray, getUpperLabel(), isDb);
+    drawRect(subCanvas, subCtx, getLowerArray, getLowerLabel(), false);
+  }
   updateStatsPanel();
 }
 
@@ -1200,8 +1206,8 @@ function pixelToSnappedFreq(px) {
   const traces = getVisibleTraces();
   if (!traces.length) return null;
   const { fMin, fMax } = getFreqRange();
-  const { plotW }      = plotDims();
-  const f              = xToF(px, fMin, fMax, plotW, viewState.freqLog);
+  const { plotW }      = plotDims(canvas);
+  const f              = xToF(px, fMin, fMax, plotW, isLogScale());
   // Snap to the nearest data point across all visible traces
   let bestFreq = null, bestDist = Infinity;
   for (const { computed } of traces) {
@@ -1219,18 +1225,18 @@ function getMarkerDisplay(mk) {
   if (!traces.length) return formatFreq(mk.freqHz);
   const parts = [`<span>${formatFreq(mk.freqHz)}</span>`];
   for (const { fileEntry, key, computed } of traces) {
-    const arr  = getDataArray(computed, viewState.mode);
     const idx  = nearestIdx(computed.freqHz, mk.freqHz);
     if (idx < 0) continue;
     const name = fileEntry.name.replace(/\.s\d+p$/i, '').slice(-10);
     let valStr;
-    if (!arr) {
-      // smith mode: show |Γ| and phase
+    if (isSmithMode()) {
       const mag   = Math.sqrt(computed.real[idx] ** 2 + computed.imag[idx] ** 2);
       const phase = Math.atan2(computed.imag[idx], computed.real[idx]) * 180 / Math.PI;
       valStr = `|Γ|=${mag.toFixed(4)} ∠${phase.toFixed(2)}°`;
     } else {
-      valStr = formatVal(arr[idx], viewState.mode);
+      const uv = getUpperArray(computed)[idx];
+      const lv = getLowerArray(computed)[idx];
+      valStr = `${formatVal(uv, getUpperUnit())} / ${formatVal(lv, getLowerUnit())}`;
     }
     parts.push(`<span style="color:${fileEntry.color}">${name} S${key}: ${valStr}</span>`);
   }
@@ -1246,17 +1252,15 @@ function updateMarkerPanel() {
     const df  = Math.abs(m1.freqHz - m0.freqHz);
     const traces = getVisibleTraces();
     let dValStr = '';
-    if (traces.length) {
+    if (traces.length && !isSmithMode()) {
       const { computed } = traces[0];
-      const arr  = getDataArray(computed, viewState.mode);
-      if (arr) {
-        const i0 = nearestIdx(computed.freqHz, m0.freqHz);
-        const i1 = nearestIdx(computed.freqHz, m1.freqHz);
-        if (i0 >= 0 && i1 >= 0) {
-          const v0 = arr[i0], v1 = arr[i1];
-          if (isFinite(v0) && isFinite(v1)) {
-            dValStr = `  ΔY: ${formatVal(v1 - v0, viewState.mode)}`;
-          }
+      const arr  = getUpperArray(computed);
+      const i0 = nearestIdx(computed.freqHz, m0.freqHz);
+      const i1 = nearestIdx(computed.freqHz, m1.freqHz);
+      if (i0 >= 0 && i1 >= 0) {
+        const v0 = arr[i0], v1 = arr[i1];
+        if (isFinite(v0) && isFinite(v1)) {
+          dValStr = `  ΔY: ${formatVal(v1 - v0, getUpperUnit())}`;
         }
       }
     }
@@ -1272,11 +1276,9 @@ function updateStatsPanel() {
     statsContent.innerHTML = '<div class="empty-msg">トレースなし</div>';
     return;
   }
-  const mode = viewState.mode;
   const { fMin, fMax } = getFreqRange();
 
-  if (mode === 'smith') {
-    // Smith mode: show |Γ| (return loss) stats
+  if (isSmithMode()) {
     const rows = traces.map(({ fileEntry, key, computed }) => {
       const { real, imag, freqHz } = computed;
       let magMin = Infinity, magMax = -Infinity, peakF = 0, minF = 0;
@@ -1306,29 +1308,31 @@ function updateStatsPanel() {
     return;
   }
 
+  const skipLow = viewState.displayFormat === 'DB';
+  const unit    = getUpperUnit();
+  const label   = getUpperLabel();
   const rows = traces.map(({ fileEntry, key, computed }) => {
-    const arr  = getDataArray(computed, mode);
-    if (!arr) return '';
+    const arr  = getUpperArray(computed);
     const fHz  = computed.freqHz;
     let vMin =  Infinity, vMax = -Infinity, peakF = 0, minF = 0;
     for (let i = 0; i < arr.length; i++) {
       if (fHz[i] < fMin || fHz[i] > fMax) continue;
       const v = arr[i];
-      if (!isFinite(v) || (mode === 'dB' && v < -300)) continue;
+      if (!isFinite(v) || (skipLow && v < -300)) continue;
       if (v > vMax) { vMax = v; peakF = fHz[i]; }
       if (v < vMin) { vMin = v; minF  = fHz[i]; }
     }
     const name = fileEntry.name.replace(/\.s\d+p$/i, '').slice(-14);
     return `<tr>
       <td><span class="c-swatch" style="background:${fileEntry.color}"></span>${TT.escHtml(name)} S${key}</td>
-      <td>${isFinite(vMax) ? formatVal(vMax, mode) : '—'}</td>
+      <td>${isFinite(vMax) ? formatVal(vMax, unit) : '—'}</td>
       <td>${isFinite(vMax) ? formatFreq(peakF) : '—'}</td>
-      <td>${isFinite(vMin) ? formatVal(vMin, mode) : '—'}</td>
+      <td>${isFinite(vMin) ? formatVal(vMin, unit) : '—'}</td>
       <td>${isFinite(vMin) ? formatFreq(minF) : '—'}</td>
     </tr>`;
   }).join('');
   statsContent.innerHTML = `<table class="stats-table">
-    <thead><tr><th>トレース</th><th>最大</th><th>最大周波数</th><th>最小</th><th>最小周波数</th></tr></thead>
+    <thead><tr><th>トレース</th><th>${label} 最大</th><th>周波数</th><th>${label} 最小</th><th>周波数</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -1440,119 +1444,136 @@ function renderAll() {
 }
 
 // ── Canvas events ──────────────────────────────────────────────────────────
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  if (viewState.mode === 'smith') return;
-  const rect = canvas.getBoundingClientRect();
-  const px   = e.clientX - rect.left;
-  const { plotW } = plotDims();
-  if (px < PAD.left || px > PAD.left + plotW) return;
+function addChartEvents(c) {
+  c.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (isSmithMode()) return;
+    const rect = c.getBoundingClientRect();
+    const px   = e.clientX - rect.left;
+    const { plotW } = plotDims(canvas);
+    if (px < PAD.left || px > PAD.left + plotW) return;
 
-  const { fMin, fMax } = getFreqRange();
-  const fAtCursor = xToF(px, fMin, fMax, plotW, viewState.freqLog);
-  const factor    = e.deltaY > 0 ? 1.3 : 1 / 1.3;
-  const global    = getGlobalFreqRange();
-  const log = viewState.freqLog;
+    const { fMin, fMax } = getFreqRange();
+    const log = isLogScale();
+    const fAtCursor = xToF(px, fMin, fMax, plotW, log);
+    const factor    = e.deltaY > 0 ? 1.3 : 1 / 1.3;
+    const global    = getGlobalFreqRange();
 
-  let newMin, newMax;
-  if (log) {
-    const lAt  = Math.log10(fAtCursor);
-    const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
-    newMin = Math.pow(10, lAt - (lAt - lMin) * factor);
-    newMax = Math.pow(10, lAt + (lMax - lAt) * factor);
-  } else {
-    newMin = fAtCursor - (fAtCursor - fMin) * factor;
-    newMax = fAtCursor + (fMax - fAtCursor) * factor;
-  }
+    let newMin, newMax;
+    if (log) {
+      const lAt  = Math.log10(fAtCursor);
+      const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
+      newMin = Math.pow(10, lAt - (lAt - lMin) * factor);
+      newMax = Math.pow(10, lAt + (lMax - lAt) * factor);
+    } else {
+      newMin = fAtCursor - (fAtCursor - fMin) * factor;
+      newMax = fAtCursor + (fMax - fAtCursor) * factor;
+    }
 
-  newMin = Math.max(newMin, global.fMin);
-  newMax = Math.min(newMax, global.fMax);
-  if (newMax - newMin > 0) {
-    viewState.zoom = { fMin: newMin, fMax: newMax };
-    redraw();
-  }
-}, { passive: false });
-
-canvas.addEventListener('pointerdown', e => {
-  if (viewState.mode === 'smith') return;
-  const { fMin, fMax } = getFreqRange();
-  drag = { startX: e.offsetX, startFMin: fMin, startFMax: fMax };
-  wasDragging = false;
-  canvas.classList.add('panning');
-  canvas.setPointerCapture(e.pointerId);
-});
-
-canvas.addEventListener('pointermove', e => {
-  if (drag) {
-    const dx = e.offsetX - drag.startX;
-    if (Math.abs(dx) > 3) wasDragging = true;
-    if (wasDragging) {
-      canvas.classList.add('grabbing');
-      const { plotW } = plotDims();
-      const log = viewState.freqLog;
-      const global = getGlobalFreqRange();
-      const { startFMin, startFMax } = drag;
-      let df;
-      if (log) {
-        const lMin = Math.log10(startFMin), lMax = Math.log10(startFMax);
-        const dLog = -(dx / plotW) * (lMax - lMin);
-        const clampMin = Math.max(Math.pow(10, lMin + dLog), global.fMin);
-        const clampMax = Math.min(Math.pow(10, lMax + dLog), global.fMax);
-        viewState.zoom = { fMin: clampMin, fMax: clampMax };
-      } else {
-        df = -(dx / plotW) * (startFMax - startFMin);
-        const clampedMin = Math.max(startFMin + df, global.fMin);
-        const clampedMax = Math.min(startFMax + df, global.fMax);
-        viewState.zoom = { fMin: clampedMin, fMax: clampedMax };
-      }
+    newMin = Math.max(newMin, global.fMin);
+    newMax = Math.min(newMax, global.fMax);
+    if (newMax - newMin > 0) {
+      viewState.zoom = { fMin: newMin, fMax: newMax };
       redraw();
     }
-  } else if (viewState.mode !== 'smith') {
-    updateHoverReadout(e.offsetX);
-  }
-});
+  }, { passive: false });
 
-canvas.addEventListener('pointerup', e => {
-  canvas.classList.remove('panning', 'grabbing');
-  drag = null;
-});
+  c.addEventListener('pointerdown', e => {
+    if (isSmithMode()) return;
+    const { fMin, fMax } = getFreqRange();
+    drag = { startX: e.offsetX, startFMin: fMin, startFMax: fMax };
+    wasDragging = false;
+    c.classList.add('panning');
+    c.setPointerCapture(e.pointerId);
+  });
 
-canvas.addEventListener('click', e => {
-  if (wasDragging) { wasDragging = false; return; }
-  if (viewState.mode === 'smith') return;
-  const { plotW } = plotDims();
-  if (e.offsetX < PAD.left || e.offsetX > PAD.left + plotW) return;
-  const snapped = pixelToSnappedFreq(e.offsetX);
-  if (snapped === null) return;
-  viewState.markers[viewState.activeSlot] = { freqHz: snapped };
-  viewState.activeSlot = 1 - viewState.activeSlot;
-  mkSlot0Btn.classList.toggle('active', viewState.activeSlot === 0);
-  mkSlot1Btn.classList.toggle('active', viewState.activeSlot === 1);
-  redraw();
-  updateMarkerPanel();
-});
+  c.addEventListener('pointermove', e => {
+    if (drag) {
+      const dx = e.offsetX - drag.startX;
+      if (Math.abs(dx) > 3) wasDragging = true;
+      if (wasDragging) {
+        c.classList.add('grabbing');
+        const { plotW } = plotDims(canvas);
+        const log = isLogScale();
+        const global = getGlobalFreqRange();
+        const { startFMin, startFMax } = drag;
+        if (log) {
+          const lMin = Math.log10(startFMin), lMax = Math.log10(startFMax);
+          const dLog = -(dx / plotW) * (lMax - lMin);
+          const clampMin = Math.max(Math.pow(10, lMin + dLog), global.fMin);
+          const clampMax = Math.min(Math.pow(10, lMax + dLog), global.fMax);
+          viewState.zoom = { fMin: clampMin, fMax: clampMax };
+        } else {
+          const df = -(dx / plotW) * (startFMax - startFMin);
+          viewState.zoom = {
+            fMin: Math.max(startFMin + df, global.fMin),
+            fMax: Math.min(startFMax + df, global.fMax),
+          };
+        }
+        redraw();
+      }
+    } else if (!isSmithMode()) {
+      updateHoverReadout(e.offsetX);
+    }
+  });
 
-canvas.addEventListener('dblclick', () => {
-  viewState.zoom = { fMin: null, fMax: null };
-  redraw();
-});
+  c.addEventListener('pointerup', () => {
+    c.classList.remove('panning', 'grabbing');
+    drag = null;
+  });
+
+  c.addEventListener('click', e => {
+    if (wasDragging) { wasDragging = false; return; }
+    if (isSmithMode()) return;
+    const { plotW } = plotDims(canvas);
+    if (e.offsetX < PAD.left || e.offsetX > PAD.left + plotW) return;
+    const snapped = pixelToSnappedFreq(e.offsetX);
+    if (snapped === null) return;
+    viewState.markers[viewState.activeSlot] = { freqHz: snapped };
+    viewState.activeSlot = 1 - viewState.activeSlot;
+    mkSlot0Btn.classList.toggle('active', viewState.activeSlot === 0);
+    mkSlot1Btn.classList.toggle('active', viewState.activeSlot === 1);
+    redraw();
+    updateMarkerPanel();
+  });
+
+  c.addEventListener('dblclick', () => {
+    viewState.zoom = { fMin: null, fMax: null };
+    redraw();
+  });
+}
+addChartEvents(canvas);
+addChartEvents(subCanvas);
 
 function updateHoverReadout(px) {
-  const { plotW } = plotDims();
+  const { plotW } = plotDims(canvas);
   const { fMin, fMax } = getFreqRange();
   if (px < PAD.left || px > PAD.left + plotW || !getVisibleTraces().length) {
     hoverReadout.textContent = '—';
     return;
   }
-  const f      = xToF(px, fMin, fMax, plotW, viewState.freqLog);
+  const log    = isLogScale();
+  const f      = xToF(px, fMin, fMax, plotW, log);
   const traces = getVisibleTraces();
-  const parts  = [formatFreq(f)];
-  for (const { fileEntry, key, computed } of traces.slice(0, 4)) {
-    const arr = getDataArray(computed, viewState.mode);
-    const idx = nearestIdx(computed.freqHz, f);
-    parts.push(`S${key}: ${formatVal(arr[idx], viewState.mode)}`);
+  if (isSmithMode()) {
+    const parts = [formatFreq(f)];
+    for (const { key, computed } of traces.slice(0, 4)) {
+      const idx = nearestIdx(computed.freqHz, f);
+      const mag = Math.sqrt(computed.real[idx] ** 2 + computed.imag[idx] ** 2);
+      const ph  = Math.atan2(computed.imag[idx], computed.real[idx]) * 180 / Math.PI;
+      parts.push(`S${key}: |Γ|=${mag.toFixed(4)} ∠${ph.toFixed(2)}°`);
+    }
+    hoverReadout.textContent = parts.join('  ');
+  } else {
+    const parts = [formatFreq(f)];
+    for (const { key, computed } of traces.slice(0, 4)) {
+      const idx = nearestIdx(computed.freqHz, f);
+      const uv  = getUpperArray(computed)[idx];
+      const lv  = getLowerArray(computed)[idx];
+      parts.push(`S${key}: ${formatVal(uv, getUpperUnit())}/${formatVal(lv, getLowerUnit())}`);
+    }
+    hoverReadout.textContent = parts.join('  ');
   }
-  hoverReadout.textContent = parts.join('  ');
 }
 
 // ── Sidebar events ─────────────────────────────────────────────────────────
@@ -1579,25 +1600,29 @@ fileList.addEventListener('input', e => {
   }
 });
 
-document.getElementById('modeBtns').addEventListener('click', e => {
-  const btn = e.target.closest('[data-mode]');
+document.getElementById('fmtBtns').addEventListener('click', e => {
+  const btn = e.target.closest('[data-fmt]');
   if (!btn) return;
-  viewState.mode = btn.dataset.mode;
-  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b === btn));
-  canvas.style.cursor = viewState.mode === 'smith' ? 'default' : 'crosshair';
+  viewState.displayFormat = btn.dataset.fmt;
+  document.querySelectorAll('[data-fmt]').forEach(b => b.classList.toggle('active', b === btn));
   viewState.markers = [null, null];
   updateMarkerPanel();
   redraw();
 });
 
-[document.getElementById('freqLinBtn'), document.getElementById('freqLogBtn')].forEach(btn => {
-  btn.addEventListener('click', () => {
-    viewState.freqLog = btn.dataset.fscale === 'log';
-    document.getElementById('freqLinBtn').classList.toggle('active', !viewState.freqLog);
-    document.getElementById('freqLogBtn').classList.toggle('active', viewState.freqLog);
-    viewState.zoom = { fMin: null, fMax: null };
-    redraw();
-  });
+document.getElementById('graphBtns').addEventListener('click', e => {
+  const btn = e.target.closest('[data-graph]');
+  if (!btn) return;
+  viewState.graphType = btn.dataset.graph;
+  document.querySelectorAll('[data-graph]').forEach(b => b.classList.toggle('active', b === btn));
+  const cursor = isSmithMode() ? 'default' : 'crosshair';
+  canvas.style.cursor = cursor;
+  subCanvas.style.cursor = cursor;
+  viewState.zoom = { fMin: null, fMax: null };
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  updateCanvasLayout();
+  redraw();
 });
 
 
@@ -1660,71 +1685,82 @@ document.getElementById('bwRunBtn').addEventListener('click', () => {
 });
 
 // ── Export ─────────────────────────────────────────────────────────────────
+function makeTimestamp() {
+  const now = new Date();
+  return `${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  Object.assign(document.createElement('a'), { href: url, download: filename }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 document.getElementById('exportPngBtn').addEventListener('click', () => {
-  // Redraw at full resolution for clean export
   redraw();
-  canvas.toBlob(blob => {
-    const url  = URL.createObjectURL(blob);
-    const now  = new Date();
-    const ts   = `${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
-    const a    = Object.assign(document.createElement('a'), {
-      href: url, download: `waveform_${ts}.png`,
-    });
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-  }, 'image/png');
+  const ts = makeTimestamp();
+  if (isSmithMode() || subCanvas.style.display === 'none') {
+    canvas.toBlob(blob => downloadBlob(blob, `waveform_${ts}.png`), 'image/png');
+  } else {
+    const oc  = document.createElement('canvas');
+    oc.width  = canvas.width;
+    oc.height = canvas.height + subCanvas.height;
+    const oc_ctx = oc.getContext('2d');
+    oc_ctx.drawImage(canvas, 0, 0);
+    oc_ctx.drawImage(subCanvas, 0, canvas.height);
+    oc.toBlob(blob => downloadBlob(blob, `waveform_${ts}.png`), 'image/png');
+  }
 });
 
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
   const traces = getVisibleTraces();
   if (!traces.length) return;
-  const mode = viewState.mode;
-  const unit = MODE_UNIT[mode];
-  const isSmith = mode === 'smith';
 
-  // Each trace gets its own Freq + Value column(s)
-  const headers = ['No'];
-  for (const { fileEntry, key } of traces) {
-    const name = fileEntry.name.replace(/\.s\d+p$/i, '');
-    if (isSmith) {
-      headers.push(`Freq_${name}_S${key}[Hz]`, `S${key}_Re`, `S${key}_Im`, `S${key}_mag[dB]`);
-    } else {
-      headers.push(`Freq_${name}_S${key}[Hz]`, `S${key}_${mode}${unit ? '['+unit+']' : ''}`);
-    }
+  const byFile = new Map();
+  for (const tr of traces) {
+    const id = tr.fileEntry.id;
+    if (!byFile.has(id)) byFile.set(id, { fileEntry: tr.fileEntry, traces: [] });
+    byFile.get(id).traces.push(tr);
   }
 
-  const maxN = Math.max(...traces.map(t => t.computed.freqHz.length));
-  const lines = [headers.join(',')];
-  for (let i = 0; i < maxN; i++) {
-    const row = [i + 1];
-    for (const { computed } of traces) {
-      if (i < computed.freqHz.length) {
-        if (isSmith) {
-          const re  = computed.real[i], im = computed.imag[i];
-          const mag = Math.sqrt(re * re + im * im);
-          const db  = mag > 0 ? 20 * Math.log10(mag) : -999;
-          row.push(computed.freqHz[i].toExponential(8),
-                   re.toExponential(8), im.toExponential(8), db.toExponential(8));
-        } else {
-          const arr = getDataArray(computed, mode);
-          row.push(computed.freqHz[i].toExponential(8), arr[i].toExponential(8));
-        }
+  const smith = isSmithMode();
+  const fmt   = viewState.displayFormat;
+  const csvFiles = [];
+
+  for (const { fileEntry, traces: fTraces } of byFile.values()) {
+    const baseName = fileEntry.name.replace(/\.s\d+p$/i, '');
+
+    const headers = ['Freq[Hz]'];
+    for (const { key } of fTraces) {
+      if (smith || fmt === 'RI') {
+        headers.push(`S${key}_re`, `S${key}_im`);
+      } else if (fmt === 'DB') {
+        headers.push(`S${key}_dB[dB]`, `S${key}_phase[°]`);
       } else {
-        row.push(...(isSmith ? ['','','',''] : ['','']));
+        headers.push(`S${key}_mag`, `S${key}_phase[°]`);
       }
     }
-    lines.push(row.join(','));
+
+    const N = fTraces[0].computed.freqHz.length;
+    const lines = [headers.join(',')];
+    for (let i = 0; i < N; i++) {
+      const row = [fTraces[0].computed.freqHz[i].toExponential(8)];
+      for (const { computed } of fTraces) {
+        if (smith || fmt === 'RI') {
+          row.push(computed.real[i].toExponential(8), computed.imag[i].toExponential(8));
+        } else if (fmt === 'DB') {
+          row.push(computed.db[i].toExponential(8), computed.phase[i].toExponential(8));
+        } else {
+          row.push(computed.mag[i].toExponential(8), computed.phase[i].toExponential(8));
+        }
+      }
+      lines.push(row.join(','));
+    }
+    csvFiles.push({ name: `${baseName}.csv`, data: lines.join('\r\n') });
   }
 
-  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const now  = new Date();
-  const ts   = `${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
-  const a    = Object.assign(document.createElement('a'), {
-    href: url, download: `waveform_${ts}.csv`,
-  });
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const ts  = makeTimestamp();
+  const zip = TT.buildZip(csvFiles);
+  downloadBlob(new Blob([zip], { type: 'application/zip' }), `waveform_${ts}.zip`);
 });
 
 // ── File loading ───────────────────────────────────────────────────────────
@@ -1794,8 +1830,15 @@ new ResizeObserver(() => {
   dpr = window.devicePixelRatio || 1;
   canvas.width  = Math.round(canvas.clientWidth  * dpr);
   canvas.height = Math.round(canvas.clientHeight * dpr);
+  if (subCanvas.offsetParent !== null && subCanvas.style.display !== 'none') {
+    subCanvas.width  = Math.round(subCanvas.clientWidth  * dpr);
+    subCanvas.height = Math.round(subCanvas.clientHeight * dpr);
+  }
   redraw();
 }).observe(canvasWrap);
+
+// ── Initial layout ─────────────────────────────────────────────────────────
+updateCanvasLayout();
 
 // ── Init ───────────────────────────────────────────────────────────────────
 redraw();
