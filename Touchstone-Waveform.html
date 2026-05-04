@@ -483,7 +483,6 @@ header {
       </select>
     </div>
     <div class="bw-row" style="margin-bottom:0">
-      <button class="btn btn-secondary btn-sm" id="freqRangeApplyBtn">適用</button>
       <button class="btn btn-secondary btn-sm" id="freqRangeResetBtn">全範囲</button>
     </div>
   </div>
@@ -1712,6 +1711,7 @@ document.getElementById('phaseUnwrapChk').addEventListener('change', e => {
   redraw();
 });
 
+let freqRangeDebounce = null;
 function applyFreqRange() {
   const fMin = unitToHz(+freqStartValEl.value, freqStartUnitEl.value);
   const fMax = unitToHz(+freqStopValEl.value,  freqStopUnitEl.value);
@@ -1721,16 +1721,22 @@ function applyFreqRange() {
   updateMarkerPanel();
   redraw();
 }
+function scheduleApplyFreqRange() {
+  clearTimeout(freqRangeDebounce);
+  freqRangeDebounce = setTimeout(applyFreqRange, 250);
+}
 
-document.getElementById('freqRangeApplyBtn').addEventListener('click', applyFreqRange);
+[freqStartValEl, freqStopValEl].forEach(el => {
+  el.addEventListener('input', scheduleApplyFreqRange);
+});
+[freqStartUnitEl, freqStopUnitEl].forEach(el => {
+  el.addEventListener('change', applyFreqRange);
+});
 document.getElementById('freqRangeResetBtn').addEventListener('click', () => {
   viewState.zoom = { fMin: null, fMax: null };
   viewState.markers = [null, null];
   updateMarkerPanel();
   redraw();
-});
-[freqStartValEl, freqStopValEl].forEach(el => {
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') applyFreqRange(); });
 });
 
 
