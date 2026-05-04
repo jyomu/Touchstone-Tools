@@ -449,8 +449,7 @@ function buildChannelCSV(i, j) {
   const [colA, colB] = colHeaders(inFmt, key);
 
   const lines = [
-    ...comments,
-    optionLine,
+    ...TT.csvPreamble(parsed),
     `Freq[${freqUnit}],${colA},${colB}`,
   ];
 
