@@ -1757,7 +1757,10 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
     }
 
     const N = fTraces[0].computed.freqHz.length;
-    const lines = [headers.join(',')];
+    const lines = [
+      ...TT.csvPreamble(fileEntry.parsed),
+      headers.join(','),
+    ];
     for (let i = 0; i < N; i++) {
       const row = [fTraces[0].computed.freqHz[i].toExponential(8)];
       for (const { computed } of fTraces) {
@@ -1771,7 +1774,7 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
       }
       lines.push(row.join(','));
     }
-    csvFiles.push({ name: `${baseName}.csv`, data: lines.join('\r\n') });
+    csvFiles.push({ name: `${baseName}.csv`, data: lines.join('\r\n') + '\r\n' });
   }
 
   const ts  = makeTimestamp();
