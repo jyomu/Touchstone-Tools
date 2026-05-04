@@ -678,15 +678,23 @@ function syncFreqRangeInputs() {
   if (!files.some(f => f.visible)) {
     freqStartValEl.value = '';
     freqStopValEl.value  = '';
+    freqStartValEl.removeAttribute('min'); freqStartValEl.removeAttribute('max');
+    freqStopValEl.removeAttribute('min');  freqStopValEl.removeAttribute('max');
     return;
   }
   const { fMin, fMax } = getFreqRange();
-  const startUnit = bestUnit(fMin);
-  const stopUnit  = bestUnit(fMax);
-  freqStartUnitEl.value = startUnit;
-  freqStopUnitEl.value  = stopUnit;
-  freqStartValEl.value  = +hzToUnit(fMin, startUnit).toPrecision(6);
-  freqStopValEl.value   = +hzToUnit(fMax, stopUnit).toPrecision(6);
+  const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+  // Auto-pick unit only on first load (when inputs are empty)
+  if (freqStartValEl.value === '') freqStartUnitEl.value = bestUnit(gMin);
+  if (freqStopValEl.value  === '') freqStopUnitEl.value  = bestUnit(gMax);
+  const su = freqStartUnitEl.value;
+  const eu = freqStopUnitEl.value;
+  freqStartValEl.value = +hzToUnit(fMin, su).toPrecision(6);
+  freqStopValEl.value  = +hzToUnit(fMax, eu).toPrecision(6);
+  freqStartValEl.min = +hzToUnit(gMin, su).toPrecision(6);
+  freqStartValEl.max = +hzToUnit(gMax, su).toPrecision(6);
+  freqStopValEl.min  = +hzToUnit(gMin, eu).toPrecision(6);
+  freqStopValEl.max  = +hzToUnit(gMax, eu).toPrecision(6);
 }
 
 
@@ -1729,8 +1737,23 @@ function scheduleApplyFreqRange() {
 [freqStartValEl, freqStopValEl].forEach(el => {
   el.addEventListener('input', scheduleApplyFreqRange);
 });
-[freqStartUnitEl, freqStopUnitEl].forEach(el => {
-  el.addEventListener('change', applyFreqRange);
+freqStartUnitEl.addEventListener('change', () => {
+  clearTimeout(freqRangeDebounce);
+  const { fMin } = getFreqRange();
+  const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+  const u = freqStartUnitEl.value;
+  freqStartValEl.value = +hzToUnit(fMin, u).toPrecision(6);
+  freqStartValEl.min = +hzToUnit(gMin, u).toPrecision(6);
+  freqStartValEl.max = +hzToUnit(gMax, u).toPrecision(6);
+});
+freqStopUnitEl.addEventListener('change', () => {
+  clearTimeout(freqRangeDebounce);
+  const { fMax } = getFreqRange();
+  const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+  const u = freqStopUnitEl.value;
+  freqStopValEl.value = +hzToUnit(fMax, u).toPrecision(6);
+  freqStopValEl.min = +hzToUnit(gMin, u).toPrecision(6);
+  freqStopValEl.max = +hzToUnit(gMax, u).toPrecision(6);
 });
 document.getElementById('freqRangeResetBtn').addEventListener('click', () => {
   viewState.zoom = { fMin: null, fMax: null };
