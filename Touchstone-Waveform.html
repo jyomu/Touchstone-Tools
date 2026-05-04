@@ -1691,7 +1691,6 @@ document.getElementById('graphBtns').addEventListener('click', e => {
   const cursor = isSmithMode() ? 'default' : 'crosshair';
   canvas.style.cursor = cursor;
   subCanvas.style.cursor = cursor;
-  viewState.zoom = { fMin: null, fMax: null };
   viewState.markers = [null, null];
   updateMarkerPanel();
   updateCanvasLayout();
