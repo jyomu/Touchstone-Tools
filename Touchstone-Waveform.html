@@ -452,6 +452,11 @@ header {
       <button class="seg-btn" data-graph="log">対数</button>
       <button class="seg-btn" data-graph="smith">スミス</button>
     </div>
+    <div class="panel-title" style="margin-top:0.625rem">位相オプション</div>
+    <div class="sp-item">
+      <input type="checkbox" id="phaseUnwrapChk" checked>
+      <label for="phaseUnwrapChk">位相アンラップ (UW)</label>
+    </div>
   </div>
 
   <!-- BW detection -->
@@ -572,6 +577,7 @@ let viewState   = {
   markers:     [null, null],
   activeSlot:  0,
   visibleParams: new Set(['11']),
+  phaseUnwrap: true,
 };
 let drag = null;    // { startX, startFMin, startFMax }
 let wasDragging = false;
@@ -711,7 +717,7 @@ function computeForKey(fileEntry, i, j) {
   }
 
   const phase = unwrapPhase(rawPhase);
-  return { key: `${i}${j}`, freqHz, db, mag, phase, real, imag };
+  return { key: `${i}${j}`, freqHz, db, mag, phase, rawPhase, real, imag };
 }
 
 function computeTraces(fileEntry) {
@@ -734,10 +740,13 @@ function getUpperArray(computed) {
 }
 function getLowerArray(computed) {
   if (viewState.displayFormat === 'RI') return computed.imag;
-  return computed.phase;
+  return viewState.phaseUnwrap ? computed.phase : computed.rawPhase;
 }
 function getUpperLabel() { return FMT_UPPER_LABEL[viewState.displayFormat]; }
-function getLowerLabel() { return FMT_LOWER_LABEL[viewState.displayFormat]; }
+function getLowerLabel() {
+  if (viewState.displayFormat === 'RI') return FMT_LOWER_LABEL['RI'];
+  return viewState.phaseUnwrap ? '位相(UW) [°]' : '位相 [°]';
+}
 function getUpperUnit()  { return FMT_UPPER_UNIT[viewState.displayFormat]; }
 function getLowerUnit()  { return FMT_LOWER_UNIT[viewState.displayFormat]; }
 
@@ -1622,6 +1631,13 @@ document.getElementById('graphBtns').addEventListener('click', e => {
   viewState.markers = [null, null];
   updateMarkerPanel();
   updateCanvasLayout();
+  redraw();
+});
+
+document.getElementById('phaseUnwrapChk').addEventListener('change', e => {
+  viewState.phaseUnwrap = e.target.checked;
+  viewState.markers = [null, null];
+  updateMarkerPanel();
   redraw();
 });
 
