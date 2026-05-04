@@ -666,14 +666,7 @@ function bestUnit(hz) {
   if (hz >= 1e3) return 'kHz';
   return 'Hz';
 }
-function hzToUnit(hz, unit) {
-  const m = { Hz: 1, kHz: 1e3, MHz: 1e6, GHz: 1e9 };
-  return hz / m[unit];
-}
-function unitToHz(val, unit) {
-  const m = { Hz: 1, kHz: 1e3, MHz: 1e6, GHz: 1e9 };
-  return val * m[unit];
-}
+function hzToUnit(hz, unit) { return hz / toHz(1, unit); }
 function syncFreqRangeInputs() {
   if (!files.some(f => f.visible)) {
     freqStartValEl.value = '';
@@ -684,7 +677,6 @@ function syncFreqRangeInputs() {
   }
   const { fMin, fMax } = getFreqRange();
   const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
-  // Auto-pick unit only on first load (when inputs are empty)
   if (freqStartValEl.value === '') freqStartUnitEl.value = bestUnit(gMin);
   if (freqStopValEl.value  === '') freqStopUnitEl.value  = bestUnit(gMax);
   const su = freqStartUnitEl.value;
@@ -1204,21 +1196,15 @@ function drawSmith() {
     ctx.globalAlpha = isDiag ? 1 : 0.5;
     if (!isDiag) ctx.setLineDash([5, 3]);
     ctx.lineJoin    = 'round';
-    let firstInRange = true;
+    let firstIdx = -1;
     for (let i = 0; i < real.length; i++) {
       if (freqHz[i] < smFMin || freqHz[i] > smFMax) continue;
       const { x, y } = gToXY(real[i], imag[i]);
-      if (firstInRange) { ctx.moveTo(x, y); firstInRange = false; }
+      if (firstIdx < 0) { firstIdx = i; ctx.moveTo(x, y); }
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
     ctx.restore();
-
-    // Start dot at lowest in-range frequency
-    let firstIdx = -1;
-    for (let i = 0; i < real.length; i++) {
-      if (freqHz[i] >= smFMin && freqHz[i] <= smFMax) { firstIdx = i; break; }
-    }
     if (firstIdx >= 0) {
       const s = gToXY(real[firstIdx], imag[firstIdx]);
       ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 2 * Math.PI);
@@ -1721,8 +1707,8 @@ document.getElementById('phaseUnwrapChk').addEventListener('change', e => {
 
 let freqRangeDebounce = null;
 function applyFreqRange() {
-  const fMin = unitToHz(+freqStartValEl.value, freqStartUnitEl.value);
-  const fMax = unitToHz(+freqStopValEl.value,  freqStopUnitEl.value);
+  const fMin = toHz(+freqStartValEl.value, freqStartUnitEl.value);
+  const fMax = toHz(+freqStopValEl.value,  freqStopUnitEl.value);
   if (!isFinite(fMin) || !isFinite(fMax) || fMin >= fMax || fMin < 0) return;
   viewState.zoom = { fMin, fMax };
   viewState.markers = [null, null];
@@ -1737,24 +1723,18 @@ function scheduleApplyFreqRange() {
 [freqStartValEl, freqStopValEl].forEach(el => {
   el.addEventListener('input', scheduleApplyFreqRange);
 });
-freqStartUnitEl.addEventListener('change', () => {
-  clearTimeout(freqRangeDebounce);
-  const { fMin } = getFreqRange();
-  const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
-  const u = freqStartUnitEl.value;
-  freqStartValEl.value = +hzToUnit(fMin, u).toPrecision(6);
-  freqStartValEl.min = +hzToUnit(gMin, u).toPrecision(6);
-  freqStartValEl.max = +hzToUnit(gMax, u).toPrecision(6);
-});
-freqStopUnitEl.addEventListener('change', () => {
-  clearTimeout(freqRangeDebounce);
-  const { fMax } = getFreqRange();
-  const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
-  const u = freqStopUnitEl.value;
-  freqStopValEl.value = +hzToUnit(fMax, u).toPrecision(6);
-  freqStopValEl.min = +hzToUnit(gMin, u).toPrecision(6);
-  freqStopValEl.max = +hzToUnit(gMax, u).toPrecision(6);
-});
+function setupUnitHandler(unitEl, valEl, getHz) {
+  unitEl.addEventListener('change', () => {
+    clearTimeout(freqRangeDebounce);
+    const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+    const u = unitEl.value;
+    valEl.value = +hzToUnit(getHz(), u).toPrecision(6);
+    valEl.min   = +hzToUnit(gMin, u).toPrecision(6);
+    valEl.max   = +hzToUnit(gMax, u).toPrecision(6);
+  });
+}
+setupUnitHandler(freqStartUnitEl, freqStartValEl, () => getFreqRange().fMin);
+setupUnitHandler(freqStopUnitEl,  freqStopValEl,  () => getFreqRange().fMax);
 document.getElementById('freqRangeResetBtn').addEventListener('click', () => {
   viewState.zoom = { fMin: null, fMax: null };
   viewState.markers = [null, null];
