@@ -531,6 +531,23 @@ header {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const PALETTE = ['#1D9E75','#E07B4A','#4A7CB5','#C94F7C','#7A5EA7','#B5A34A','#4AB5A3','#A34A4A'];
+const SPARM_DASHES = [
+  [],               // 実線
+  [6, 3],           // 長破線
+  [2, 3],           // 点線
+  [8, 3, 2, 3],     // 一点鎖線
+  [12, 3],          // 超長破線
+  [2, 3, 8, 3],     // 点・長破線
+  [4, 2, 4, 2, 2, 2], // 複合
+  [8, 2, 2, 2],     // 二点鎖線
+];
+
+function getSparmDash(key) {
+  const i = parseInt(key[0]) - 1;
+  const j = parseInt(key[key.length - 1]) - 1;
+  return SPARM_DASHES[(i * 9 + j) % SPARM_DASHES.length];
+}
+
 const PAD = { left: 60, right: 16, top: 20, bottom: 44 };
 const SMITH_PAD = 28;
 const MODE_UNIT = { dB: 'dB', phase: '°', gd: 'ns', real: '', imag: '', smith: '' };
@@ -899,6 +916,7 @@ function drawRect() {
     ctx.strokeStyle = fileEntry.color;
     ctx.lineWidth   = 1.75;
     ctx.lineJoin    = 'round';
+    ctx.setLineDash(getSparmDash(key));
     let started = false;
     for (let i = 0; i < fHz.length; i++) {
       const f = fHz[i];
@@ -911,6 +929,7 @@ function drawRect() {
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
+    ctx.setLineDash([]);
   }
   ctx.restore();
 
@@ -963,10 +982,11 @@ function drawRect() {
     const items = traces.map(t => ({
       label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}`,
       color: t.fileEntry.color,
+      dash:  getSparmDash(t.key),
     }));
     const lFont   = '10px \'IBM Plex Mono\', monospace';
     ctx.font      = lFont;
-    const lPad    = 6, lH = 16, lSwW = 14;
+    const lPad    = 6, lH = 16, lSwW = 18;
     const lMaxW   = items.reduce((m, it) => Math.max(m, ctx.measureText(it.label).width), 0);
     const lBoxW   = lMaxW + lSwW + lPad * 3;
     const lBoxH   = items.length * lH + lPad * 2;
@@ -976,6 +996,7 @@ function drawRect() {
     ctx.fillStyle   = 'rgba(253,252,250,0.88)';
     ctx.strokeStyle = '#D8D5CE';
     ctx.lineWidth   = 0.75;
+    ctx.setLineDash([]);
     ctx.beginPath();
     ctx.roundRect(lX, lY, lBoxW, lBoxH, 4);
     ctx.fill();
@@ -983,8 +1004,15 @@ function drawRect() {
 
     items.forEach((it, idx) => {
       const iy = lY + lPad + idx * lH + lH / 2;
-      ctx.fillStyle = it.color;
-      ctx.fillRect(lX + lPad, iy - 3, lSwW, 6);
+      ctx.save();
+      ctx.strokeStyle = it.color;
+      ctx.lineWidth   = 2;
+      ctx.setLineDash(it.dash);
+      ctx.beginPath();
+      ctx.moveTo(lX + lPad, iy);
+      ctx.lineTo(lX + lPad + lSwW, iy);
+      ctx.stroke();
+      ctx.restore();
       ctx.fillStyle   = '#1C1B18';
       ctx.textAlign   = 'left';
       ctx.textBaseline= 'middle';
