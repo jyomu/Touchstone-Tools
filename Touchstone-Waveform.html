@@ -532,20 +532,28 @@ header {
 // ── Constants ──────────────────────────────────────────────────────────────
 const PALETTE = ['#1D9E75','#E07B4A','#4A7CB5','#C94F7C','#7A5EA7','#B5A34A','#4AB5A3','#A34A4A'];
 const SPARM_DASHES = [
-  [],               // 実線
-  [6, 3],           // 長破線
-  [2, 3],           // 点線
-  [8, 3, 2, 3],     // 一点鎖線
-  [12, 3],          // 超長破線
-  [2, 3, 8, 3],     // 点・長破線
-  [4, 2, 4, 2, 2, 2], // 複合
-  [8, 2, 2, 2],     // 二点鎖線
+  [],                   // 実線
+  [6, 3],               // 長破線
+  [2, 3],               // 点線
+  [8, 3, 2, 3],         // 一点鎖線
+  [12, 3],              // 超長破線
+  [2, 3, 8, 3],         // 点・長破線
+  [4, 2, 4, 2, 2, 2],   // 複合1
+  [8, 2, 2, 2],         // 二点鎖線
+  [14, 3],              // 極長破線
+  [3, 3],               // 中点線
+  [8, 3, 2, 3, 2, 3],   // 二点長鎖線
+  [10, 2, 2, 2, 2, 2],  // 複合2
 ];
 
 function getSparmDash(key) {
-  const i = parseInt(key[0]) - 1;
-  const j = parseInt(key[key.length - 1]) - 1;
-  return SPARM_DASHES[(i * 9 + j) % SPARM_DASHES.length];
+  const sorted = [...viewState.visibleParams].sort((a, b) => {
+    const ai = parseInt(a[0]), aj = parseInt(a[a.length - 1]);
+    const bi = parseInt(b[0]), bj = parseInt(b[b.length - 1]);
+    return (ai * 10 + aj) - (bi * 10 + bj);
+  });
+  const idx = sorted.indexOf(key);
+  return SPARM_DASHES[idx >= 0 ? idx % SPARM_DASHES.length : 0];
 }
 
 const PAD = { left: 60, right: 16, top: 20, bottom: 44 };
