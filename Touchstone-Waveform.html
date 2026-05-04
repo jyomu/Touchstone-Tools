@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Touchstone Waveform Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F5F4F1;
+  --surface: #FDFCFA;
+  --border: #D8D5CE;
+  --border-mid: #BFBBAF;
+  --text: #1C1B18;
+  --text-muted: #6B6860;
+  --text-faint: #9E9B93;
+  --accent: #0A5C47;
+  --accent-bg: #E1F5EE;
+  --accent-mid: #1D9E75;
+  --error: #993C1D;
+  --error-bg: #FAECE7;
+  --warning: #854F0B;
+  --warning-bg: #FAEEDA;
+  --mono: 'IBM Plex Mono', 'Cascadia Code', 'Menlo', monospace;
+  --sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.app { max-width: 1300px; margin: 0 auto; }
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.logo span { color: var(--accent-mid); }
+
+.subtitle { font-size: 0.8125rem; color: var(--text-muted); }
+
+.back-link {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--mono);
+}
+.back-link:hover { text-decoration: underline; }
+
+/* Layout */
+.workspace {
+  display: grid;
+  grid-template-columns: 252px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .workspace { grid-template-columns: 1fr; }
+  .sidebar { order: 2; }
+  .chart-area { order: 1; }
+}
+
+/* Sidebar */
+.sidebar { display: flex; flex-direction: column; gap: 0.625rem; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.875rem;
+}
+
+.panel-title {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 0.625rem;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border-mid);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent-mid);
+  background: var(--accent-bg);
+}
+.drop-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+.drop-label { font-size: 0.8rem; color: var(--text-muted); }
+.drop-label strong { color: var(--accent); font-weight: 500; }
+.drop-sub { font-size: 0.7rem; color: var(--text-faint); margin-top: 0.2rem; font-family: var(--mono); }
+
+/* File list */
+.file-list { display: flex; flex-direction: column; gap: 4px; }
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 2px;
+  border-radius: 4px;
+}
+.file-row:hover { background: var(--bg); }
+
+.file-color {
+  width: 18px; height: 18px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.file-name {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-name.hidden { opacity: 0.4; }
+
+.icon-btn {
+  font-size: 0.75rem;
+  padding: 2px 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: all 0.12s;
+}
+.icon-btn:hover { background: var(--bg); color: var(--text); border-color: var(--border); }
+.icon-btn.remove:hover { background: var(--error-bg); color: var(--error); }
+
+.empty-msg { font-size: 0.75rem; color: var(--text-faint); text-align: center; padding: 0.5rem 0; }
+
+/* S-param grid */
+.sparm-grid {
+  display: grid;
+  gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.sp-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sp-item input { cursor: pointer; margin: 0; width: 12px; height: 12px; flex-shrink: 0; }
+.sp-item label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.sp-item input:checked + label { color: var(--text); font-weight: 500; }
+
+.sparm-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+/* Button groups */
+.btn-row { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.seg-btn {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.seg-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+.seg-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 6px;
+}
+.toggle-label { font-size: 0.75rem; color: var(--text-muted); }
+
+/* BW panel */
+.bw-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.bw-label { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
+.bw-select {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 4px;
+  flex: 1;
+  min-width: 0;
+}
+.bw-input {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 4px;
+  width: 52px;
+}
+.bw-result {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.6;
+}
+.bw-result .bw-val { color: var(--text); font-weight: 500; }
+.bw-result .bw-err { color: var(--error); }
+
+/* Export */
+.export-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Chart area */
+.chart-area { display: flex; flex-direction: column; gap: 0.625rem; }
+
+.canvas-wrap {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+  position: relative;
+}
+#mainCanvas {
+  display: block;
+  width: 100%;
+  height: 480px;
+  cursor: crosshair;
+}
+#mainCanvas.panning { cursor: grab; }
+#mainCanvas.grabbing { cursor: grabbing; }
+
+.status-bar {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 0.3rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 1.8rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Marker panel */
+.marker-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  align-items: start;
+}
+.mk-label { color: var(--text-faint); white-space: nowrap; }
+.mk-val { color: var(--text); line-height: 1.5; }
+.mk-val .mk-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.mk-row span { white-space: nowrap; }
+.mk-delta { color: var(--accent); }
+.mk-slot-btn {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.mk-slot-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mk-controls { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; }
+.mk-hint { font-size: 0.7rem; color: var(--text-faint); margin-left: auto; }
+
+/* Stats panel */
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+.stats-table th {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  padding: 0 4px 4px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.stats-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.stats-table tr:last-child td { border-bottom: none; }
+.stats-table .c-swatch {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* Generic buttons */
+.btn {
+  font-family: var(--sans);
+  font-size: 0.775rem;
+  font-weight: 500;
+  padding: 0.35rem 0.875rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.12s;
+}
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: #0A4F3E; }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--border-mid); background: var(--bg); }
+.btn-sm { font-size: 0.7rem; padding: 0.2rem 0.55rem; }
+.btn:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* Error banner */
+.err-banner {
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid #e8c4b8;
+  border-radius: var(--radius);
+  padding: 0.4rem 0.75rem;
+  margin-top: -2px;
+  display: none;
+}
+.err-banner.show { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">Touchstone<span>·</span>Waveform</div>
+  <div class="subtitle">Sパラメータ波形解析ツール（dB / 位相 / 群遅延 / スミスチャート · 1〜9ポート対応）</div>
+  <a class="back-link" href="index.html">← Tools</a>
+</header>
+
+<div class="workspace">
+
+<!-- ─── SIDEBAR ─────────────────────────────────────────────── -->
+<aside class="sidebar">
+
+  <!-- Drop zone -->
+  <div class="panel">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" multiple
+        accept=".s1p,.s2p,.s3p,.s4p,.s5p,.s6p,.s7p,.s8p,.s9p">
+      <div class="drop-label"><strong>クリックまたはドロップ</strong></div>
+      <div class="drop-sub">.s1p〜.s9p（複数可・重ね表示）</div>
+    </div>
+  </div>
+
+  <!-- File list -->
+  <div class="panel" id="fileListPanel">
+    <div class="panel-title">ファイル</div>
+    <div class="file-list" id="fileList">
+      <div class="empty-msg">ファイルなし</div>
+    </div>
+  </div>
+
+  <!-- S-param selection -->
+  <div class="panel" id="sparmPanel">
+    <div class="panel-title">Sパラメータ</div>
+    <div class="sparm-grid" id="sparmGrid">
+      <div class="empty-msg">ファイルを読み込んでください</div>
+    </div>
+    <div class="sparm-actions" id="sparmActions" style="display:none">
+      <button class="btn btn-secondary btn-sm" id="sparmAllBtn">全選択</button>
+      <button class="btn btn-secondary btn-sm" id="sparmNoneBtn">全解除</button>
+    </div>
+  </div>
+
+  <!-- Display options -->
+  <div class="panel">
+    <div class="panel-title">表示モード</div>
+    <div class="btn-row" id="modeBtns">
+      <button class="seg-btn active" data-mode="dB">dB</button>
+      <button class="seg-btn" data-mode="phase">位相(UW)</button>
+      <button class="seg-btn" data-mode="gd">群遅延</button>
+      <button class="seg-btn" data-mode="real">実部</button>
+      <button class="seg-btn" data-mode="imag">虚部</button>
+      <button class="seg-btn" data-mode="smith">スミス</button>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">周波数軸</span>
+      <div class="btn-row">
+        <button class="seg-btn active" id="freqLinBtn" data-fscale="linear">線形</button>
+        <button class="seg-btn" id="freqLogBtn" data-fscale="log">対数</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BW detection -->
+  <div class="panel">
+    <div class="panel-title">帯域幅検出 <span style="font-weight:400;text-transform:none;letter-spacing:0">(BPF用)</span></div>
+    <div class="bw-row">
+      <span class="bw-label">トレース</span>
+      <select class="bw-select" id="bwTrace"></select>
+    </div>
+    <div class="bw-row">
+      <span class="bw-label">レベル</span>
+      <input class="bw-input" type="number" id="bwLevel" value="-3" step="0.5">
+      <span class="bw-label">dB</span>
+      <button class="btn btn-secondary btn-sm" id="bwRunBtn">検出</button>
+    </div>
+    <div class="bw-result" id="bwResult">—</div>
+  </div>
+
+  <!-- Export -->
+  <div class="panel">
+    <div class="panel-title">エクスポート</div>
+    <div class="export-row">
+      <button class="btn btn-secondary btn-sm" id="exportPngBtn">PNG 保存</button>
+      <button class="btn btn-secondary btn-sm" id="exportCsvBtn">CSV 保存</button>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ─── CHART AREA ────────────────────────────────────────────── -->
+<main class="chart-area">
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+
+  <div class="err-banner" id="errBanner"></div>
+
+  <div class="status-bar" id="statusBar">
+    <span id="hoverReadout">周波数軸にカーソルを合わせると値を表示します</span>
+  </div>
+
+  <!-- Marker panel -->
+  <div class="panel" id="markerPanel">
+    <div class="panel-title">マーカー</div>
+    <div class="mk-controls">
+      <button class="mk-slot-btn active" id="mkSlot0Btn">M1</button>
+      <button class="mk-slot-btn" id="mkSlot1Btn">M2</button>
+      <button class="btn btn-secondary btn-sm" id="mkClearBtn">クリア</button>
+      <span class="mk-hint">グラフをクリックして配置</span>
+    </div>
+    <div class="marker-grid" id="markerGrid">
+      <span class="mk-label">M1</span><span class="mk-val" id="mkVal0">—</span>
+      <span class="mk-label">M2</span><span class="mk-val" id="mkVal1">—</span>
+      <span class="mk-label">Δ</span><span class="mk-val mk-delta" id="mkDelta">—</span>
+    </div>
+  </div>
+
+  <!-- Stats panel -->
+  <div class="panel" id="statsPanel">
+    <div class="panel-title">統計</div>
+    <div id="statsContent">
+      <div class="empty-msg">トレースなし</div>
+    </div>
+  </div>
+
+</main>
+</div><!-- .workspace -->
+</div><!-- .app -->
+
+<script src="lib/zip.js"></script>
+<script src="lib/touchstone.js"></script>
+<script type="module">
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const PALETTE = ['#1D9E75','#E07B4A','#4A7CB5','#C94F7C','#7A5EA7','#B5A34A','#4AB5A3','#A34A4A'];
+const PAD = { left: 60, right: 16, top: 20, bottom: 44 };
+const SMITH_PAD = 28;
+const MODE_UNIT = { dB: 'dB', phase: '°', gd: 'ns', real: '', imag: '', smith: '' };
+const MODE_LABEL = { dB: 'dB', phase: '位相(UW) [°]', gd: '群遅延 [ns]', real: '実部', imag: '虚部', smith: 'スミス' };
+
+// ── State ──────────────────────────────────────────────────────────────────
+let files       = [];
+let nextId      = 0;
+let nextColor   = 0;
+let viewState   = {
+  mode:        'dB',
+  freqLog:     false,
+  zoom:        { fMin: null, fMax: null },
+  markers:     [null, null],
+  activeSlot:  0,
+  visibleParams: new Set(['11']),
+};
+let drag = null;    // { startX, startFMin, startFMax }
+let wasDragging = false;
+let dpr = window.devicePixelRatio || 1;
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const canvas      = document.getElementById('mainCanvas');
+const ctx         = canvas.getContext('2d');
+const canvasWrap  = document.getElementById('canvasWrap');
+const fileList    = document.getElementById('fileList');
+const sparmGrid   = document.getElementById('sparmGrid');
+const sparmActions= document.getElementById('sparmActions');
+const bwTrace     = document.getElementById('bwTrace');
+const bwResult    = document.getElementById('bwResult');
+const errBanner   = document.getElementById('errBanner');
+const hoverReadout= document.getElementById('hoverReadout');
+const mkVal0      = document.getElementById('mkVal0');
+const mkVal1      = document.getElementById('mkVal1');
+const mkDelta     = document.getElementById('mkDelta');
+const statsContent= document.getElementById('statsContent');
+const mkSlot0Btn  = document.getElementById('mkSlot0Btn');
+const mkSlot1Btn  = document.getElementById('mkSlot1Btn');
+
+// ── Math helpers ───────────────────────────────────────────────────────────
+function toRI(a, b, inFmt) {
+  if (inFmt === 'RI') return [a, b];
+  const phRad = b * Math.PI / 180;
+  const mag   = inFmt === 'DB' ? (a <= -999 ? 0 : Math.pow(10, a / 20)) : a;
+  return [mag * Math.cos(phRad), mag * Math.sin(phRad)];
+}
+
+function toHz(freq, freqUnit) {
+  const m = { Hz: 1, kHz: 1e3, MHz: 1e6, GHz: 1e9 };
+  return freq * (m[freqUnit] ?? 1);
+}
+
+function unwrapPhase(phaseDeg) {
+  const out = new Float64Array(phaseDeg.length);
+  out[0] = phaseDeg[0];
+  for (let i = 1; i < phaseDeg.length; i++) {
+    let d = phaseDeg[i] - out[i - 1];
+    while (d >  180) d -= 360;
+    while (d < -180) d += 360;
+    out[i] = out[i - 1] + d;
+  }
+  return out;
+}
+
+function computeGroupDelay(freqHz, phaseUnwrapDeg) {
+  // GD = -d(phase_deg)/(360 * df) seconds → × 1e9 for ns
+  const N  = freqHz.length;
+  const gd = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    let dPhi, dF;
+    if (i === 0) {
+      dPhi = phaseUnwrapDeg[1] - phaseUnwrapDeg[0];
+      dF   = freqHz[1] - freqHz[0];
+    } else if (i === N - 1) {
+      dPhi = phaseUnwrapDeg[N - 1] - phaseUnwrapDeg[N - 2];
+      dF   = freqHz[N - 1] - freqHz[N - 2];
+    } else {
+      dPhi = phaseUnwrapDeg[i + 1] - phaseUnwrapDeg[i - 1];
+      dF   = freqHz[i + 1] - freqHz[i - 1];
+    }
+    gd[i] = dF === 0 ? 0 : -(dPhi / (360 * dF)) * 1e9;
+  }
+  return gd;
+}
+
+function nearestIdx(arr, v) {
+  if (!arr.length) return -1;
+  let best = 0, bestD = Math.abs(arr[0] - v);
+  for (let i = 1; i < arr.length; i++) {
+    const d = Math.abs(arr[i] - v);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+// ── Format helpers ─────────────────────────────────────────────────────────
+function formatFreq(hz) {
+  if (hz >= 1e9) return `${+(hz / 1e9).toPrecision(6)} GHz`;
+  if (hz >= 1e6) return `${+(hz / 1e6).toPrecision(6)} MHz`;
+  if (hz >= 1e3) return `${+(hz / 1e3).toPrecision(6)} kHz`;
+  return `${+hz.toPrecision(6)} Hz`;
+}
+
+function formatVal(v, mode) {
+  if (!isFinite(v)) return '—';
+  const u = MODE_UNIT[mode];
+  return `${v.toFixed(mode === 'gd' ? 4 : 3)}${u ? ' ' + u : ''}`;
+}
+
+function formatBW(hz) {
+  if (hz >= 1e9) return `${(hz / 1e9).toFixed(4)} GHz`;
+  if (hz >= 1e6) return `${(hz / 1e6).toFixed(4)} MHz`;
+  if (hz >= 1e3) return `${(hz / 1e3).toFixed(4)} kHz`;
+  return `${hz.toFixed(2)} Hz`;
+}
+
+function niceTicks(min, max, maxCount) {
+  const range   = max - min;
+  if (range <= 0) return [min];
+  const rough   = range / maxCount;
+  const mag     = Math.pow(10, Math.floor(Math.log10(rough)));
+  const steps   = [1, 2, 2.5, 5, 10];
+  let step = mag;
+  for (const s of steps) {
+    step = s * mag;
+    if (range / step <= maxCount + 0.5) break;
+  }
+  const ticks = [];
+  const start = Math.ceil(min / step) * step;
+  for (let t = start; t <= max + step * 1e-6; t += step) {
+    const r = parseFloat(t.toPrecision(10));
+    if (r >= min - step * 1e-6 && r <= max + step * 1e-6) ticks.push(r);
+  }
+  return ticks;
+}
+
+function logFreqTicks(fMin, fMax) {
+  const ticks   = [];
+  const decMin  = Math.floor(Math.log10(fMin));
+  const decMax  = Math.ceil(Math.log10(fMax));
+  const subs    = fMax / fMin > 100 ? [1, 2, 5] : [1, 2, 3, 5, 7];
+  for (let d = decMin; d <= decMax; d++) {
+    for (const m of subs) {
+      const f = m * Math.pow(10, d);
+      if (f >= fMin * 0.9999 && f <= fMax * 1.0001) ticks.push(f);
+    }
+  }
+  return ticks.length ? ticks : niceTicks(fMin, fMax, 6);
+}
+
+// ── Compute traces ─────────────────────────────────────────────────────────
+function computeForKey(fileEntry, i, j) {
+  const { parsed, n } = fileEntry;
+  const { inFmt, freqUnit, freqData } = parsed;
+  const pairIdx = (i - 1) * n + (j - 1);
+  const N       = freqData.length;
+  const freqHz  = new Float64Array(N);
+  const real    = new Float64Array(N);
+  const imag    = new Float64Array(N);
+  const db      = new Float64Array(N);
+  const rawPhase= new Float64Array(N);
+
+  for (let k = 0; k < N; k++) {
+    freqHz[k]   = toHz(freqData[k].freq, freqUnit);
+    const [a, b]= freqData[k].pairs[pairIdx];
+    const [re, im] = toRI(a, b, inFmt);
+    real[k] = re; imag[k] = im;
+    const mag   = Math.sqrt(re * re + im * im);
+    db[k]       = mag === 0 ? -999 : 20 * Math.log10(mag);
+    rawPhase[k] = Math.atan2(im, re) * 180 / Math.PI;
+  }
+
+  const phase = unwrapPhase(rawPhase);
+  const gd    = computeGroupDelay(freqHz, phase);
+  return { key: `${i}${j}`, freqHz, db, phase, gd, real, imag };
+}
+
+function computeTraces(fileEntry) {
+  fileEntry.computed = new Map();
+  for (let i = 1; i <= fileEntry.n; i++) {
+    for (let j = 1; j <= fileEntry.n; j++) {
+      const key = `${i}${j}`;
+      fileEntry.computed.set(key, computeForKey(fileEntry, i, j));
+    }
+  }
+}
+
+// ── Data accessors ─────────────────────────────────────────────────────────
+function getDataArray(computed, mode) {
+  if (mode === 'dB')    return computed.db;
+  if (mode === 'phase') return computed.phase;
+  if (mode === 'gd')    return computed.gd;
+  if (mode === 'real')  return computed.real;
+  if (mode === 'imag')  return computed.imag;
+  return null; // 'smith' など
+}
+
+function getVisibleTraces() {
+  const result = [];
+  for (const fe of files) {
+    if (!fe.visible) continue;
+    for (const key of viewState.visibleParams) {
+      if (fe.computed.has(key)) {
+        result.push({ fileEntry: fe, key, computed: fe.computed.get(key) });
+      }
+    }
+  }
+  return result;
+}
+
+function getGlobalFreqRange() {
+  const traces = getVisibleTraces();
+  if (!traces.length) return { fMin: 1e6, fMax: 6e9 };
+  let fMin = Infinity, fMax = -Infinity;
+  for (const { computed } of traces) {
+    if (computed.freqHz[0] < fMin) fMin = computed.freqHz[0];
+    const last = computed.freqHz[computed.freqHz.length - 1];
+    if (last > fMax) fMax = last;
+  }
+  return { fMin, fMax };
+}
+
+function getFreqRange() {
+  const g = getGlobalFreqRange();
+  return {
+    fMin: viewState.zoom.fMin ?? g.fMin,
+    fMax: viewState.zoom.fMax ?? g.fMax,
+  };
+}
+
+function getYRange(traces, mode) {
+  let yMin =  Infinity, yMax = -Infinity;
+  const { fMin, fMax } = getFreqRange();
+  for (const { computed } of traces) {
+    const arr = getDataArray(computed, mode);
+    const fHz = computed.freqHz;
+    for (let i = 0; i < arr.length; i++) {
+      if (fHz[i] < fMin || fHz[i] > fMax) continue;
+      const v = arr[i];
+      if (!isFinite(v)) continue;
+      if (mode === 'dB' && v < -200) continue;
+      if (v < yMin) yMin = v;
+      if (v > yMax) yMax = v;
+    }
+  }
+  if (!isFinite(yMin)) { yMin = -60; yMax = 0; }
+  if (yMin === yMax)   { yMin -= 5; yMax += 5; }
+  const pad = (yMax - yMin) * 0.1;
+  return { yMin: yMin - pad, yMax: yMax + pad };
+}
+
+// ── Canvas coordinate transforms ───────────────────────────────────────────
+function plotDims() {
+  return {
+    W: canvas.clientWidth,
+    H: canvas.clientHeight,
+    plotW: canvas.clientWidth  - PAD.left - PAD.right,
+    plotH: canvas.clientHeight - PAD.top  - PAD.bottom,
+  };
+}
+
+function fToX(f, fMin, fMax, plotW, logScale) {
+  if (logScale) {
+    const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
+    return PAD.left + (Math.log10(f) - lMin) / (lMax - lMin) * plotW;
+  }
+  return PAD.left + (f - fMin) / (fMax - fMin) * plotW;
+}
+
+function xToF(x, fMin, fMax, plotW, logScale) {
+  const t = (x - PAD.left) / plotW;
+  if (logScale) {
+    const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
+    return Math.pow(10, lMin + t * (lMax - lMin));
+  }
+  return fMin + t * (fMax - fMin);
+}
+
+function vToY(v, yMin, yMax, plotH) {
+  return PAD.top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+}
+
+// ── Draw: rectangular chart ────────────────────────────────────────────────
+function drawRect() {
+  const { W, H, plotW, plotH } = plotDims();
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const traces = getVisibleTraces();
+  const { fMin, fMax } = getFreqRange();
+  const { yMin, yMax } = getYRange(traces, viewState.mode);
+  const log = viewState.freqLog && fMin > 0;
+
+  // Background
+  ctx.fillStyle = '#FDFCFA';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#F9F8F5';
+  ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+  // Grid
+  ctx.strokeStyle = '#E4E2DC';
+  ctx.lineWidth = 1;
+
+  const xTicks = log ? logFreqTicks(fMin, fMax) : niceTicks(fMin, fMax, 7);
+  for (const f of xTicks) {
+    const x = fToX(f, fMin, fMax, plotW, log);
+    if (x < PAD.left - 1 || x > PAD.left + plotW + 1) continue;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + plotH); ctx.stroke();
+  }
+
+  const yTicks = niceTicks(yMin, yMax, 6);
+  for (const v of yTicks) {
+    const y = vToY(v, yMin, yMax, plotH);
+    if (y < PAD.top - 1 || y > PAD.top + plotH + 1) continue;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+  }
+
+  // Axes border
+  ctx.strokeStyle = '#BFBBAF';
+  ctx.lineWidth   = 1;
+  ctx.strokeRect(PAD.left, PAD.top, plotW, plotH);
+
+  // Tick labels: X axis
+  ctx.fillStyle   = '#6B6860';
+  ctx.font        = `${11 * Math.min(1, W / 600)}px 'IBM Plex Mono', monospace`;
+  ctx.textAlign   = 'center';
+  ctx.textBaseline= 'top';
+  for (const f of xTicks) {
+    const x = fToX(f, fMin, fMax, plotW, log);
+    if (x < PAD.left - 1 || x > PAD.left + plotW + 1) continue;
+    ctx.fillText(formatFreq(f), x, PAD.top + plotH + 5);
+  }
+
+  // Y-axis label
+  ctx.save();
+  ctx.translate(12, PAD.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#9E9B93';
+  ctx.font = `10px 'IBM Plex Mono', monospace`;
+  ctx.fillText(MODE_LABEL[viewState.mode], 0, 0);
+  ctx.restore();
+
+  // Tick labels: Y axis
+  ctx.textAlign   = 'right';
+  ctx.textBaseline= 'middle';
+  ctx.font = `11px 'IBM Plex Mono', monospace`;
+  for (const v of yTicks) {
+    const y = vToY(v, yMin, yMax, plotH);
+    if (y < PAD.top - 1 || y > PAD.top + plotH + 1) continue;
+    ctx.fillText(v.toString(), PAD.left - 5, y);
+  }
+
+  // Traces
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PAD.left, PAD.top, plotW, plotH);
+  ctx.clip();
+
+  for (const { fileEntry, key, computed } of traces) {
+    const arr = getDataArray(computed, viewState.mode);
+    const fHz = computed.freqHz;
+    ctx.beginPath();
+    ctx.strokeStyle = fileEntry.color;
+    ctx.lineWidth   = 1.75;
+    ctx.lineJoin    = 'round';
+    let started = false;
+    for (let i = 0; i < fHz.length; i++) {
+      const f = fHz[i];
+      const v = arr[i];
+      if (!isFinite(v)) { started = false; continue; }
+      if (viewState.mode === 'dB' && v < -300) { started = false; continue; }
+      const x = fToX(f, fMin, fMax, plotW, log);
+      const y = vToY(v, yMin, yMax, plotH);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Markers
+  const mColors = ['#E07B4A', '#4A7CB5'];
+  for (let slot = 0; slot < 2; slot++) {
+    const mk = viewState.markers[slot];
+    if (!mk) continue;
+    const x = fToX(mk.freqHz, fMin, fMax, plotW, log);
+    if (x < PAD.left || x > PAD.left + plotW) continue;
+    ctx.save();
+    ctx.strokeStyle = mColors[slot];
+    ctx.lineWidth   = 1.5;
+    if (slot === 1) { ctx.setLineDash([4, 3]); }
+    ctx.beginPath();
+    ctx.moveTo(x, PAD.top);
+    ctx.lineTo(x, PAD.top + plotH);
+    ctx.stroke();
+
+    // Dots on each trace at marker
+    for (const { computed, fileEntry } of traces) {
+      const arr  = getDataArray(computed, viewState.mode);
+      const idx  = nearestIdx(computed.freqHz, mk.freqHz);
+      const v    = arr[idx];
+      if (!isFinite(v) || (viewState.mode === 'dB' && v < -300)) continue;
+      const y    = vToY(v, yMin, yMax, plotH);
+      if (y < PAD.top || y > PAD.top + plotH) continue;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fillStyle   = fileEntry.color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle   = mColors[slot];
+    ctx.font        = `bold 10px 'IBM Plex Mono', monospace`;
+    ctx.textBaseline= 'bottom';
+    const label     = `M${slot + 1}: ${formatFreq(mk.freqHz)}`;
+    const lw        = ctx.measureText(label).width;
+    const lx        = Math.min(x + 4, PAD.left + plotW - lw - 4);
+    ctx.fillText(label, lx, PAD.top + 14);
+    ctx.restore();
+  }
+
+  // Legend
+  if (traces.length) {
+    const items = traces.map(t => ({
+      label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}`,
+      color: t.fileEntry.color,
+    }));
+    const lFont   = '10px \'IBM Plex Mono\', monospace';
+    ctx.font      = lFont;
+    const lPad    = 6, lH = 16, lSwW = 14;
+    const lMaxW   = items.reduce((m, it) => Math.max(m, ctx.measureText(it.label).width), 0);
+    const lBoxW   = lMaxW + lSwW + lPad * 3;
+    const lBoxH   = items.length * lH + lPad * 2;
+    const lX      = PAD.left + plotW - lBoxW - 6;
+    const lY      = PAD.top + 6;
+
+    ctx.fillStyle   = 'rgba(253,252,250,0.88)';
+    ctx.strokeStyle = '#D8D5CE';
+    ctx.lineWidth   = 0.75;
+    ctx.beginPath();
+    ctx.roundRect(lX, lY, lBoxW, lBoxH, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    items.forEach((it, idx) => {
+      const iy = lY + lPad + idx * lH + lH / 2;
+      ctx.fillStyle = it.color;
+      ctx.fillRect(lX + lPad, iy - 3, lSwW, 6);
+      ctx.fillStyle   = '#1C1B18';
+      ctx.textAlign   = 'left';
+      ctx.textBaseline= 'middle';
+      ctx.fillText(it.label, lX + lPad + lSwW + 4, iy);
+    });
+  }
+
+  // Empty state
+  if (!traces.length) {
+    ctx.fillStyle   = '#9E9B93';
+    ctx.font        = `14px 'IBM Plex Sans', sans-serif`;
+    ctx.textAlign   = 'center';
+    ctx.textBaseline= 'middle';
+    ctx.fillText('ファイルを読み込んでください', W / 2, H / 2);
+  }
+
+  ctx.restore();
+}
+
+// ── Draw: Smith chart ──────────────────────────────────────────────────────
+function drawSmith() {
+  const W  = canvas.clientWidth;
+  const H  = canvas.clientHeight;
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#FDFCFA';
+  ctx.fillRect(0, 0, W, H);
+
+  const R  = Math.min(W, H) / 2 - SMITH_PAD;
+  const cx = W / 2;
+  const cy = H / 2;
+
+  function gToXY(re, im) {
+    return { x: cx + re * R, y: cy - im * R };
+  }
+
+  // Unit circle fill
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+  ctx.fillStyle = '#F9F8F5';
+  ctx.fill();
+
+  // Clip to unit disk for constant-X arcs
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+  ctx.clip();
+
+  ctx.lineWidth = 0.7;
+  // Constant-X arcs
+  const xVals = [0.2, 0.5, 1, 2, 5];
+  for (const xv of xVals) {
+    for (const sign of [1, -1]) {
+      const xn    = sign * xv;
+      const arcCx = cx + R;            // Γ_re=1 → rightmost
+      const arcCy = cy - (1 / xn) * R;
+      const arcR  = Math.abs(1 / xn) * R;
+      ctx.beginPath();
+      ctx.arc(arcCx, arcCy, arcR, 0, 2 * Math.PI);
+      ctx.strokeStyle = sign > 0 ? 'rgba(74,124,181,0.45)' : 'rgba(201,79,124,0.45)';
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // Constant-R circles
+  const rVals = [0, 0.2, 0.5, 1, 2, 5];
+  for (const rv of rVals) {
+    const circCx = cx + (rv / (rv + 1)) * R;
+    const circCy = cy;
+    const circR  = (1 / (rv + 1)) * R;
+    ctx.beginPath();
+    ctx.arc(circCx, circCy, circR, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#BFBBAF';
+    ctx.lineWidth   = rv === 0 ? 1.5 : 0.8;
+    ctx.stroke();
+
+    // Label
+    if (rv > 0) {
+      const labelX = circCx + circR + 3;
+      const labelY = circCy;
+      ctx.fillStyle   = '#9E9B93';
+      ctx.font        = '9px \'IBM Plex Mono\', monospace';
+      ctx.textAlign   = 'left';
+      ctx.textBaseline= 'middle';
+      ctx.fillText(rv.toString(), labelX, labelY);
+    }
+  }
+
+  // Axes
+  ctx.strokeStyle = '#BFBBAF';
+  ctx.lineWidth   = 1;
+  ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
+
+  // Landmark labels
+  ctx.font = '10px \'IBM Plex Mono\', monospace';
+  ctx.fillStyle = '#9E9B93';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('∞ (開放)', cx + R, cy + 4);
+  ctx.textAlign = 'center';
+  ctx.fillText('0 (短絡)', cx - R - 2, cy + 4);
+  ctx.fillText('整合', cx, cy - 10);
+
+  // Traces (Γ plane = S-param in RI)
+  const traces = getVisibleTraces();
+  let hasOffDiag = false;
+  for (const { fileEntry, key, computed } of traces) {
+    const { real, imag } = computed;
+    const isDiag = key.length === 2 && key[0] === key[1];
+    if (!isDiag) hasOffDiag = true;
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = fileEntry.color;
+    ctx.lineWidth   = isDiag ? 1.75 : 1.25;
+    ctx.globalAlpha = isDiag ? 1 : 0.5;
+    if (!isDiag) ctx.setLineDash([5, 3]);
+    ctx.lineJoin    = 'round';
+    for (let i = 0; i < real.length; i++) {
+      const { x, y } = gToXY(real[i], imag[i]);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Start dot
+    if (real.length) {
+      const s = gToXY(real[0], imag[0]);
+      ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 2 * Math.PI);
+      ctx.fillStyle = isDiag ? fileEntry.color : 'transparent';
+      ctx.strokeStyle = fileEntry.color;
+      ctx.lineWidth = 1;
+      ctx.fill(); ctx.stroke();
+    }
+  }
+
+  // Off-diagonal warning note
+  if (hasOffDiag) {
+    ctx.fillStyle = '#854F0B';
+    ctx.font = '9px \'IBM Plex Mono\', monospace';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillText('破線: Sij (i≠j) は参考表示', W - 8, H - 8);
+  }
+
+  // Smith markers
+  const mColors = ['#E07B4A', '#4A7CB5'];
+  for (let slot = 0; slot < 2; slot++) {
+    const mk = viewState.markers[slot];
+    if (!mk) continue;
+    for (const { fileEntry, computed } of traces) {
+      const idx = nearestIdx(computed.freqHz, mk.freqHz);
+      const { x, y } = gToXY(computed.real[idx], computed.imag[idx]);
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI);
+      ctx.fillStyle   = mColors[slot];
+      ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  }
+
+  // Title
+  ctx.fillStyle = '#9E9B93';
+  ctx.font = '11px \'IBM Plex Sans\', sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('スミスチャート（Γ平面）', 8, H - 8);
+
+  ctx.restore();
+}
+
+function redraw() {
+  if (viewState.mode === 'smith') drawSmith();
+  else drawRect();
+  updateStatsPanel();
+}
+
+// ── Markers ────────────────────────────────────────────────────────────────
+function pixelToSnappedFreq(px) {
+  const traces = getVisibleTraces();
+  if (!traces.length) return null;
+  const { fMin, fMax } = getFreqRange();
+  const { plotW }      = plotDims();
+  const f              = xToF(px, fMin, fMax, plotW, viewState.freqLog);
+  // Snap to the nearest data point across all visible traces
+  let bestFreq = null, bestDist = Infinity;
+  for (const { computed } of traces) {
+    const idx = nearestIdx(computed.freqHz, f);
+    if (idx < 0) continue;
+    const dist = Math.abs(computed.freqHz[idx] - f);
+    if (dist < bestDist) { bestDist = dist; bestFreq = computed.freqHz[idx]; }
+  }
+  return bestFreq;
+}
+
+function getMarkerDisplay(mk) {
+  if (!mk) return '—';
+  const traces = getVisibleTraces();
+  if (!traces.length) return formatFreq(mk.freqHz);
+  const parts = [`<span>${formatFreq(mk.freqHz)}</span>`];
+  for (const { fileEntry, key, computed } of traces) {
+    const arr  = getDataArray(computed, viewState.mode);
+    const idx  = nearestIdx(computed.freqHz, mk.freqHz);
+    if (idx < 0) continue;
+    const name = fileEntry.name.replace(/\.s\d+p$/i, '').slice(-10);
+    let valStr;
+    if (!arr) {
+      // smith mode: show |Γ| and phase
+      const mag   = Math.sqrt(computed.real[idx] ** 2 + computed.imag[idx] ** 2);
+      const phase = Math.atan2(computed.imag[idx], computed.real[idx]) * 180 / Math.PI;
+      valStr = `|Γ|=${mag.toFixed(4)} ∠${phase.toFixed(2)}°`;
+    } else {
+      valStr = formatVal(arr[idx], viewState.mode);
+    }
+    parts.push(`<span style="color:${fileEntry.color}">${name} S${key}: ${valStr}</span>`);
+  }
+  return `<div class="mk-row">${parts.join('')}</div>`;
+}
+
+function updateMarkerPanel() {
+  const [m0, m1] = viewState.markers;
+  mkVal0.innerHTML = getMarkerDisplay(m0);
+  mkVal1.innerHTML = getMarkerDisplay(m1);
+
+  if (m0 && m1) {
+    const df  = Math.abs(m1.freqHz - m0.freqHz);
+    const traces = getVisibleTraces();
+    let dValStr = '';
+    if (traces.length) {
+      const { computed } = traces[0];
+      const arr  = getDataArray(computed, viewState.mode);
+      if (arr) {
+        const i0 = nearestIdx(computed.freqHz, m0.freqHz);
+        const i1 = nearestIdx(computed.freqHz, m1.freqHz);
+        if (i0 >= 0 && i1 >= 0) {
+          const v0 = arr[i0], v1 = arr[i1];
+          if (isFinite(v0) && isFinite(v1)) {
+            dValStr = `  ΔY: ${formatVal(v1 - v0, viewState.mode)}`;
+          }
+        }
+      }
+    }
+    mkDelta.innerHTML = `<span>ΔF: ${formatFreq(df)}${dValStr}</span>`;
+  } else {
+    mkDelta.innerHTML = '—';
+  }
+}
+
+function updateStatsPanel() {
+  const traces = getVisibleTraces();
+  if (!traces.length) {
+    statsContent.innerHTML = '<div class="empty-msg">トレースなし</div>';
+    return;
+  }
+  const mode = viewState.mode;
+  const { fMin, fMax } = getFreqRange();
+
+  if (mode === 'smith') {
+    // Smith mode: show |Γ| (return loss) stats
+    const rows = traces.map(({ fileEntry, key, computed }) => {
+      const { real, imag, freqHz } = computed;
+      let magMin = Infinity, magMax = -Infinity, peakF = 0, minF = 0;
+      for (let i = 0; i < freqHz.length; i++) {
+        if (freqHz[i] < fMin || freqHz[i] > fMax) continue;
+        const mag = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+        if (mag > magMax) { magMax = mag; peakF = freqHz[i]; }
+        if (mag < magMin) { magMin = mag; minF  = freqHz[i]; }
+      }
+      const rlMax = isFinite(magMax) && magMax > 0 ? (20 * Math.log10(magMax)).toFixed(3) + ' dB' : '—';
+      const rlMin = isFinite(magMin) && magMin > 0 ? (20 * Math.log10(magMin)).toFixed(3) + ' dB' : '—';
+      const name  = fileEntry.name.replace(/\.s\d+p$/i, '').slice(-14);
+      return `<tr>
+        <td><span class="c-swatch" style="background:${fileEntry.color}"></span>${TT.escHtml(name)} S${key}</td>
+        <td>${isFinite(magMax) ? magMax.toFixed(4) : '—'}</td>
+        <td>${rlMax}</td>
+        <td>${isFinite(magMax) ? formatFreq(peakF) : '—'}</td>
+        <td>${isFinite(magMin) ? magMin.toFixed(4) : '—'}</td>
+        <td>${rlMin}</td>
+        <td>${isFinite(magMin) ? formatFreq(minF) : '—'}</td>
+      </tr>`;
+    }).join('');
+    statsContent.innerHTML = `<table class="stats-table">
+      <thead><tr><th>トレース</th><th>|Γ|max</th><th>[dB]</th><th>周波数</th><th>|Γ|min</th><th>[dB]</th><th>周波数</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    return;
+  }
+
+  const rows = traces.map(({ fileEntry, key, computed }) => {
+    const arr  = getDataArray(computed, mode);
+    if (!arr) return '';
+    const fHz  = computed.freqHz;
+    let vMin =  Infinity, vMax = -Infinity, peakF = 0, minF = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (fHz[i] < fMin || fHz[i] > fMax) continue;
+      const v = arr[i];
+      if (!isFinite(v) || (mode === 'dB' && v < -300)) continue;
+      if (v > vMax) { vMax = v; peakF = fHz[i]; }
+      if (v < vMin) { vMin = v; minF  = fHz[i]; }
+    }
+    const name = fileEntry.name.replace(/\.s\d+p$/i, '').slice(-14);
+    return `<tr>
+      <td><span class="c-swatch" style="background:${fileEntry.color}"></span>${TT.escHtml(name)} S${key}</td>
+      <td>${isFinite(vMax) ? formatVal(vMax, mode) : '—'}</td>
+      <td>${isFinite(vMax) ? formatFreq(peakF) : '—'}</td>
+      <td>${isFinite(vMin) ? formatVal(vMin, mode) : '—'}</td>
+      <td>${isFinite(vMin) ? formatFreq(minF) : '—'}</td>
+    </tr>`;
+  }).join('');
+  statsContent.innerHTML = `<table class="stats-table">
+    <thead><tr><th>トレース</th><th>最大</th><th>最大周波数</th><th>最小</th><th>最小周波数</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── BW detection ───────────────────────────────────────────────────────────
+function findBandwidth(computed, dbLevel) {
+  const { freqHz, db } = computed;
+  const N = freqHz.length;
+  if (N < 3) return null;
+  let peakIdx = 0;
+  for (let i = 1; i < N; i++) { if (db[i] > db[peakIdx]) peakIdx = i; }
+  const threshold = db[peakIdx] + dbLevel;
+
+  // Warn if peak is at an edge (LPF/HPF など BPF 以外の可能性)
+  const edgeWarning = peakIdx < 2 || peakIdx > N - 3
+    ? 'ピークが測定端にあります。LPF/HPF には正確な帯域幅を算出できない場合があります。' : null;
+
+  let loIdx = peakIdx;
+  while (loIdx > 0 && db[loIdx] >= threshold) loIdx--;
+  let hiIdx = peakIdx;
+  while (hiIdx < N - 1 && db[hiIdx] >= threshold) hiIdx++;
+
+  let fLo, fHi;
+  if (loIdx === peakIdx || (loIdx === 0 && db[0] >= threshold)) {
+    fLo = freqHz[0];
+  } else {
+    const t = (threshold - db[loIdx]) / (db[loIdx + 1] - db[loIdx]);
+    fLo = freqHz[loIdx] + t * (freqHz[loIdx + 1] - freqHz[loIdx]);
+  }
+  if (hiIdx === peakIdx || (hiIdx === N - 1 && db[N - 1] >= threshold)) {
+    fHi = freqHz[N - 1];
+  } else {
+    const t = (threshold - db[hiIdx - 1]) / (db[hiIdx] - db[hiIdx - 1]);
+    fHi = freqHz[hiIdx - 1] + t * (freqHz[hiIdx] - freqHz[hiIdx - 1]);
+  }
+  return { fLow: fLo, fHigh: fHi, bw: fHi - fLo,
+           peakDb: db[peakIdx], peakFreq: freqHz[peakIdx], threshold, edgeWarning };
+}
+
+function renderBwTraceSelect() {
+  const old = bwTrace.value;
+  bwTrace.innerHTML = '';
+  for (const fe of files) {
+    if (!fe.visible) continue;
+    for (const [key] of fe.computed) {
+      const opt = document.createElement('option');
+      opt.value = `${fe.id}:${key}`;
+      opt.textContent = `${fe.name.replace(/\.s\d+p$/i,'').slice(-14)} S${key}`;
+      bwTrace.appendChild(opt);
+    }
+  }
+  if (old) bwTrace.value = old;
+}
+
+// ── Render sidebar UI ──────────────────────────────────────────────────────
+function renderFileList() {
+  if (!files.length) {
+    fileList.innerHTML = '<div class="empty-msg">ファイルなし</div>';
+    return;
+  }
+  fileList.innerHTML = files.map(fe => `
+    <div class="file-row" data-id="${fe.id}">
+      <input type="color" class="file-color" value="${fe.color}" data-action="color" data-id="${fe.id}" title="色を変更">
+      <span class="file-name${fe.visible ? '' : ' hidden'}" title="${TT.escHtml(fe.name)}">${TT.escHtml(fe.name)}</span>
+      <button class="icon-btn" data-action="toggle" data-id="${fe.id}" title="表示切替">${fe.visible ? '👁' : '🙈'}</button>
+      <button class="icon-btn remove" data-action="remove" data-id="${fe.id}" title="削除">✕</button>
+    </div>
+  `).join('');
+}
+
+function renderSparmGrid() {
+  const maxN = Math.max(...files.map(f => f.n), 0);
+  if (!maxN) {
+    sparmGrid.style.gridTemplateColumns = '';
+    sparmGrid.innerHTML = '<div class="empty-msg">ファイルを読み込んでください</div>';
+    sparmActions.style.display = 'none';
+    return;
+  }
+  sparmActions.style.display = '';
+  sparmGrid.style.gridTemplateColumns = `repeat(${maxN}, auto)`;
+  let html = '';
+  for (let i = 1; i <= maxN; i++) {
+    for (let j = 1; j <= maxN; j++) {
+      const key = `${i}${j}`;
+      const chk = viewState.visibleParams.has(key);
+      html += `<label class="sp-item">
+        <input type="checkbox" data-key="${key}" ${chk ? 'checked' : ''}>
+        <span>S${key}</span>
+      </label>`;
+    }
+  }
+  sparmGrid.innerHTML = html;
+  sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const key = cb.dataset.key;
+      cb.checked ? viewState.visibleParams.add(key) : viewState.visibleParams.delete(key);
+      viewState.zoom = { fMin: null, fMax: null };
+      renderAll();
+    });
+  });
+}
+
+function renderAll() {
+  renderFileList();
+  renderSparmGrid();
+  renderBwTraceSelect();
+  redraw();
+  updateMarkerPanel();
+}
+
+// ── Canvas events ──────────────────────────────────────────────────────────
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (viewState.mode === 'smith') return;
+  const rect = canvas.getBoundingClientRect();
+  const px   = e.clientX - rect.left;
+  const { plotW } = plotDims();
+  if (px < PAD.left || px > PAD.left + plotW) return;
+
+  const { fMin, fMax } = getFreqRange();
+  const fAtCursor = xToF(px, fMin, fMax, plotW, viewState.freqLog);
+  const factor    = e.deltaY > 0 ? 1.3 : 1 / 1.3;
+  const global    = getGlobalFreqRange();
+  const log = viewState.freqLog;
+
+  let newMin, newMax;
+  if (log) {
+    const lAt  = Math.log10(fAtCursor);
+    const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
+    newMin = Math.pow(10, lAt - (lAt - lMin) * factor);
+    newMax = Math.pow(10, lAt + (lMax - lAt) * factor);
+  } else {
+    newMin = fAtCursor - (fAtCursor - fMin) * factor;
+    newMax = fAtCursor + (fMax - fAtCursor) * factor;
+  }
+
+  newMin = Math.max(newMin, global.fMin);
+  newMax = Math.min(newMax, global.fMax);
+  if (newMax - newMin > 0) {
+    viewState.zoom = { fMin: newMin, fMax: newMax };
+    redraw();
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointerdown', e => {
+  if (viewState.mode === 'smith') return;
+  const { fMin, fMax } = getFreqRange();
+  drag = { startX: e.offsetX, startFMin: fMin, startFMax: fMax };
+  wasDragging = false;
+  canvas.classList.add('panning');
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (drag) {
+    const dx = e.offsetX - drag.startX;
+    if (Math.abs(dx) > 3) wasDragging = true;
+    if (wasDragging) {
+      canvas.classList.add('grabbing');
+      const { plotW } = plotDims();
+      const log = viewState.freqLog;
+      const global = getGlobalFreqRange();
+      const { startFMin, startFMax } = drag;
+      let df;
+      if (log) {
+        const lMin = Math.log10(startFMin), lMax = Math.log10(startFMax);
+        const dLog = -(dx / plotW) * (lMax - lMin);
+        const clampMin = Math.max(Math.pow(10, lMin + dLog), global.fMin);
+        const clampMax = Math.min(Math.pow(10, lMax + dLog), global.fMax);
+        viewState.zoom = { fMin: clampMin, fMax: clampMax };
+      } else {
+        df = -(dx / plotW) * (startFMax - startFMin);
+        const clampedMin = Math.max(startFMin + df, global.fMin);
+        const clampedMax = Math.min(startFMax + df, global.fMax);
+        viewState.zoom = { fMin: clampedMin, fMax: clampedMax };
+      }
+      redraw();
+    }
+  } else if (viewState.mode !== 'smith') {
+    updateHoverReadout(e.offsetX);
+  }
+});
+
+canvas.addEventListener('pointerup', e => {
+  canvas.classList.remove('panning', 'grabbing');
+  drag = null;
+});
+
+canvas.addEventListener('click', e => {
+  if (wasDragging) { wasDragging = false; return; }
+  if (viewState.mode === 'smith') return;
+  const { plotW } = plotDims();
+  if (e.offsetX < PAD.left || e.offsetX > PAD.left + plotW) return;
+  const snapped = pixelToSnappedFreq(e.offsetX);
+  if (snapped === null) return;
+  viewState.markers[viewState.activeSlot] = { freqHz: snapped };
+  viewState.activeSlot = 1 - viewState.activeSlot;
+  mkSlot0Btn.classList.toggle('active', viewState.activeSlot === 0);
+  mkSlot1Btn.classList.toggle('active', viewState.activeSlot === 1);
+  redraw();
+  updateMarkerPanel();
+});
+
+canvas.addEventListener('dblclick', () => {
+  viewState.zoom = { fMin: null, fMax: null };
+  redraw();
+});
+
+function updateHoverReadout(px) {
+  const { plotW } = plotDims();
+  const { fMin, fMax } = getFreqRange();
+  if (px < PAD.left || px > PAD.left + plotW || !getVisibleTraces().length) {
+    hoverReadout.textContent = '—';
+    return;
+  }
+  const f      = xToF(px, fMin, fMax, plotW, viewState.freqLog);
+  const traces = getVisibleTraces();
+  const parts  = [formatFreq(f)];
+  for (const { fileEntry, key, computed } of traces.slice(0, 4)) {
+    const arr = getDataArray(computed, viewState.mode);
+    const idx = nearestIdx(computed.freqHz, f);
+    parts.push(`S${key}: ${formatVal(arr[idx], viewState.mode)}`);
+  }
+  hoverReadout.textContent = parts.join('  ');
+}
+
+// ── Sidebar events ─────────────────────────────────────────────────────────
+fileList.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  if (btn.dataset.action === 'toggle') {
+    const fe = files.find(f => f.id === id);
+    if (fe) { fe.visible = !fe.visible; renderAll(); }
+  }
+  if (btn.dataset.action === 'remove') {
+    files = files.filter(f => f.id !== id);
+    viewState.zoom = { fMin: null, fMax: null };
+    renderAll();
+  }
+});
+
+fileList.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.action === 'color') {
+    const fe = files.find(f => f.id === Number(el.dataset.id));
+    if (fe) { fe.color = el.value; redraw(); }
+  }
+});
+
+document.getElementById('modeBtns').addEventListener('click', e => {
+  const btn = e.target.closest('[data-mode]');
+  if (!btn) return;
+  viewState.mode = btn.dataset.mode;
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b === btn));
+  canvas.style.cursor = viewState.mode === 'smith' ? 'default' : 'crosshair';
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  redraw();
+});
+
+[document.getElementById('freqLinBtn'), document.getElementById('freqLogBtn')].forEach(btn => {
+  btn.addEventListener('click', () => {
+    viewState.freqLog = btn.dataset.fscale === 'log';
+    document.getElementById('freqLinBtn').classList.toggle('active', !viewState.freqLog);
+    document.getElementById('freqLogBtn').classList.toggle('active', viewState.freqLog);
+    viewState.zoom = { fMin: null, fMax: null };
+    redraw();
+  });
+});
+
+
+document.getElementById('sparmAllBtn').addEventListener('click', () => {
+  sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
+    cb.checked = true; viewState.visibleParams.add(cb.dataset.key);
+  });
+  viewState.zoom = { fMin: null, fMax: null };
+  renderAll();
+});
+
+document.getElementById('sparmNoneBtn').addEventListener('click', () => {
+  sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
+    cb.checked = false; viewState.visibleParams.delete(cb.dataset.key);
+  });
+  redraw(); updateStatsPanel();
+});
+
+mkSlot0Btn.addEventListener('click', () => {
+  viewState.activeSlot = 0;
+  mkSlot0Btn.classList.add('active');
+  mkSlot1Btn.classList.remove('active');
+});
+mkSlot1Btn.addEventListener('click', () => {
+  viewState.activeSlot = 1;
+  mkSlot1Btn.classList.add('active');
+  mkSlot0Btn.classList.remove('active');
+});
+document.getElementById('mkClearBtn').addEventListener('click', () => {
+  viewState.markers = [null, null];
+  viewState.activeSlot = 0;
+  mkSlot0Btn.classList.add('active');
+  mkSlot1Btn.classList.remove('active');
+  updateMarkerPanel(); redraw();
+});
+
+document.getElementById('bwRunBtn').addEventListener('click', () => {
+  const val  = bwTrace.value;
+  if (!val) { bwResult.innerHTML = '<span class="bw-err">トレースなし</span>'; return; }
+  const [idStr, key] = val.split(':');
+  const fe = files.find(f => f.id === Number(idStr));
+  if (!fe || !fe.computed.has(key)) {
+    bwResult.innerHTML = '<span class="bw-err">データなし</span>'; return;
+  }
+  const level  = parseFloat(document.getElementById('bwLevel').value);
+  const result = findBandwidth(fe.computed.get(key), level);
+  if (!result) {
+    bwResult.innerHTML = '<span class="bw-err">帯域幅の検出に失敗しました</span>';
+    return;
+  }
+  const warnHtml = result.edgeWarning
+    ? `<span class="bw-err" style="display:block;margin-top:4px">⚠ ${result.edgeWarning}</span>` : '';
+  bwResult.innerHTML = `
+    帯域幅: <span class="bw-val">${formatBW(result.bw)}</span><br>
+    Flo: <span class="bw-val">${formatFreq(result.fLow)}</span><br>
+    Fhi: <span class="bw-val">${formatFreq(result.fHigh)}</span><br>
+    ピーク: <span class="bw-val">${result.peakDb.toFixed(3)} dB @ ${formatFreq(result.peakFreq)}</span>
+    ${warnHtml}
+  `;
+});
+
+// ── Export ─────────────────────────────────────────────────────────────────
+document.getElementById('exportPngBtn').addEventListener('click', () => {
+  // Redraw at full resolution for clean export
+  redraw();
+  canvas.toBlob(blob => {
+    const url  = URL.createObjectURL(blob);
+    const now  = new Date();
+    const ts   = `${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
+    const a    = Object.assign(document.createElement('a'), {
+      href: url, download: `waveform_${ts}.png`,
+    });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }, 'image/png');
+});
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+  const traces = getVisibleTraces();
+  if (!traces.length) return;
+  const mode = viewState.mode;
+  const unit = MODE_UNIT[mode];
+  const isSmith = mode === 'smith';
+
+  // Each trace gets its own Freq + Value column(s)
+  const headers = ['No'];
+  for (const { fileEntry, key } of traces) {
+    const name = fileEntry.name.replace(/\.s\d+p$/i, '');
+    if (isSmith) {
+      headers.push(`Freq_${name}_S${key}[Hz]`, `S${key}_Re`, `S${key}_Im`, `S${key}_mag[dB]`);
+    } else {
+      headers.push(`Freq_${name}_S${key}[Hz]`, `S${key}_${mode}${unit ? '['+unit+']' : ''}`);
+    }
+  }
+
+  const maxN = Math.max(...traces.map(t => t.computed.freqHz.length));
+  const lines = [headers.join(',')];
+  for (let i = 0; i < maxN; i++) {
+    const row = [i + 1];
+    for (const { computed } of traces) {
+      if (i < computed.freqHz.length) {
+        if (isSmith) {
+          const re  = computed.real[i], im = computed.imag[i];
+          const mag = Math.sqrt(re * re + im * im);
+          const db  = mag > 0 ? 20 * Math.log10(mag) : -999;
+          row.push(computed.freqHz[i].toExponential(8),
+                   re.toExponential(8), im.toExponential(8), db.toExponential(8));
+        } else {
+          const arr = getDataArray(computed, mode);
+          row.push(computed.freqHz[i].toExponential(8), arr[i].toExponential(8));
+        }
+      } else {
+        row.push(...(isSmith ? ['','','',''] : ['','']));
+      }
+    }
+    lines.push(row.join(','));
+  }
+
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const now  = new Date();
+  const ts   = `${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
+  const a    = Object.assign(document.createElement('a'), {
+    href: url, download: `waveform_${ts}.csv`,
+  });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+
+// ── File loading ───────────────────────────────────────────────────────────
+async function loadFiles(fileList_) {
+  const snpFiles = Array.from(fileList_).filter(f => /\.s\d+p$/i.test(f.name));
+  // Dedup by name + size (allows same name from different directories/revisions if size differs)
+  const existKeys = new Set(files.map(f => f.fileKey));
+  const errors = [];
+
+  for (const file of snpFiles) {
+    const fileKey = `${file.name}:${file.size}`;
+    if (existKeys.has(fileKey)) continue;
+    existKeys.add(fileKey);
+    try {
+      const n      = TT.portCount(file.name);
+      const text   = await file.text();
+      const parsed = TT.parseTouchstone(text, n);
+      const fe     = {
+        id:      nextId++,
+        fileKey,
+        name:    file.name,
+        n,
+        parsed,
+        color:   PALETTE[nextColor++ % PALETTE.length],
+        visible: true,
+        computed: new Map(),
+      };
+      computeTraces(fe);
+
+      // Auto-select S-params present in this file
+      for (let i = 1; i <= n; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (i === j) viewState.visibleParams.add(`${i}${j}`);
+        }
+      }
+      files.push(fe);
+    } catch (err) {
+      errors.push(`${file.name}: ${err.message}`);
+    }
+  }
+
+  if (errors.length) {
+    errBanner.textContent = errors.join(' / ');
+    errBanner.classList.add('show');
+  } else {
+    errBanner.classList.remove('show');
+  }
+
+  viewState.zoom = { fMin: null, fMax: null };
+  renderAll();
+}
+
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+fileInput.addEventListener('change', e => loadFiles(e.target.files));
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  loadFiles(e.dataTransfer.files);
+});
+
+// ── Resize observer (DPR-aware) ────────────────────────────────────────────
+new ResizeObserver(() => {
+  dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(canvas.clientWidth  * dpr);
+  canvas.height = Math.round(canvas.clientHeight * dpr);
+  redraw();
+}).observe(canvasWrap);
+
+// ── Init ───────────────────────────────────────────────────────────────────
+redraw();
+</script>
+</body>
+</html>
