@@ -459,6 +459,34 @@ header {
     </div>
   </div>
 
+  <!-- Frequency range -->
+  <div class="panel">
+    <div class="panel-title">周波数範囲</div>
+    <div class="bw-row">
+      <span class="bw-label">Start</span>
+      <input class="bw-input" type="number" id="freqStartVal" min="0" step="any" style="width:64px">
+      <select class="bw-select" id="freqStartUnit" style="width:50px;flex:none">
+        <option value="Hz">Hz</option>
+        <option value="kHz">kHz</option>
+        <option value="MHz">MHz</option>
+        <option value="GHz">GHz</option>
+      </select>
+    </div>
+    <div class="bw-row">
+      <span class="bw-label">Stop&nbsp;</span>
+      <input class="bw-input" type="number" id="freqStopVal" min="0" step="any" style="width:64px">
+      <select class="bw-select" id="freqStopUnit" style="width:50px;flex:none">
+        <option value="Hz">Hz</option>
+        <option value="kHz">kHz</option>
+        <option value="MHz">MHz</option>
+        <option value="GHz">GHz</option>
+      </select>
+    </div>
+    <div class="bw-row" style="margin-bottom:0">
+      <button class="btn btn-secondary btn-sm" id="freqRangeResetBtn">全範囲</button>
+    </div>
+  </div>
+
   <!-- BW detection -->
   <div class="panel">
     <div class="panel-title">帯域幅検出 <span style="font-weight:400;text-transform:none;letter-spacing:0">(BPF用)</span></div>
@@ -600,8 +628,12 @@ const mkVal0      = document.getElementById('mkVal0');
 const mkVal1      = document.getElementById('mkVal1');
 const mkDelta     = document.getElementById('mkDelta');
 const statsContent= document.getElementById('statsContent');
-const mkSlot0Btn  = document.getElementById('mkSlot0Btn');
-const mkSlot1Btn  = document.getElementById('mkSlot1Btn');
+const mkSlot0Btn      = document.getElementById('mkSlot0Btn');
+const mkSlot1Btn      = document.getElementById('mkSlot1Btn');
+const freqStartValEl  = document.getElementById('freqStartVal');
+const freqStartUnitEl = document.getElementById('freqStartUnit');
+const freqStopValEl   = document.getElementById('freqStopVal');
+const freqStopUnitEl  = document.getElementById('freqStopUnit');
 
 // ── Math helpers ───────────────────────────────────────────────────────────
 function toRI(a, b, inFmt) {
@@ -626,6 +658,35 @@ function unwrapPhase(phaseDeg) {
     out[i] = out[i - 1] + d;
   }
   return out;
+}
+
+function bestUnit(hz) {
+  if (hz >= 1e9) return 'GHz';
+  if (hz >= 1e6) return 'MHz';
+  if (hz >= 1e3) return 'kHz';
+  return 'Hz';
+}
+function hzToUnit(hz, unit) { return hz / toHz(1, unit); }
+function syncFreqRangeInputs() {
+  if (!files.some(f => f.visible)) {
+    freqStartValEl.value = '';
+    freqStopValEl.value  = '';
+    freqStartValEl.removeAttribute('min'); freqStartValEl.removeAttribute('max');
+    freqStopValEl.removeAttribute('min');  freqStopValEl.removeAttribute('max');
+    return;
+  }
+  const { fMin, fMax } = getFreqRange();
+  const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+  if (freqStartValEl.value === '') freqStartUnitEl.value = bestUnit(gMin);
+  if (freqStopValEl.value  === '') freqStopUnitEl.value  = bestUnit(gMax);
+  const su = freqStartUnitEl.value;
+  const eu = freqStopUnitEl.value;
+  freqStartValEl.value = +hzToUnit(fMin, su).toPrecision(6);
+  freqStopValEl.value  = +hzToUnit(fMax, eu).toPrecision(6);
+  freqStartValEl.min = +hzToUnit(gMin, su).toPrecision(6);
+  freqStartValEl.max = +hzToUnit(gMax, su).toPrecision(6);
+  freqStopValEl.min  = +hzToUnit(gMin, eu).toPrecision(6);
+  freqStopValEl.max  = +hzToUnit(gMax, eu).toPrecision(6);
 }
 
 
@@ -1122,9 +1183,10 @@ function drawSmith() {
 
   // Traces (Γ plane = S-param in RI)
   const traces = getVisibleTraces();
+  const { fMin: smFMin, fMax: smFMax } = getFreqRange();
   let hasOffDiag = false;
   for (const { fileEntry, key, computed } of traces) {
-    const { real, imag } = computed;
+    const { real, imag, freqHz } = computed;
     const isDiag = key.length === 2 && key[0] === key[1];
     if (!isDiag) hasOffDiag = true;
     ctx.save();
@@ -1134,16 +1196,17 @@ function drawSmith() {
     ctx.globalAlpha = isDiag ? 1 : 0.5;
     if (!isDiag) ctx.setLineDash([5, 3]);
     ctx.lineJoin    = 'round';
+    let firstIdx = -1;
     for (let i = 0; i < real.length; i++) {
+      if (freqHz[i] < smFMin || freqHz[i] > smFMax) continue;
       const { x, y } = gToXY(real[i], imag[i]);
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      if (firstIdx < 0) { firstIdx = i; ctx.moveTo(x, y); }
+      else ctx.lineTo(x, y);
     }
     ctx.stroke();
     ctx.restore();
-
-    // Start dot
-    if (real.length) {
-      const s = gToXY(real[0], imag[0]);
+    if (firstIdx >= 0) {
+      const s = gToXY(real[firstIdx], imag[firstIdx]);
       ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, 2 * Math.PI);
       ctx.fillStyle = isDiag ? fileEntry.color : 'transparent';
       ctx.strokeStyle = fileEntry.color;
@@ -1208,6 +1271,7 @@ function redraw() {
     drawRect(subCanvas, subCtx, getLowerArray, getLowerLabel(), false);
   }
   updateStatsPanel();
+  syncFreqRangeInputs();
 }
 
 // ── Markers ────────────────────────────────────────────────────────────────
@@ -1627,7 +1691,6 @@ document.getElementById('graphBtns').addEventListener('click', e => {
   const cursor = isSmithMode() ? 'default' : 'crosshair';
   canvas.style.cursor = cursor;
   subCanvas.style.cursor = cursor;
-  viewState.zoom = { fMin: null, fMax: null };
   viewState.markers = [null, null];
   updateMarkerPanel();
   updateCanvasLayout();
@@ -1636,6 +1699,43 @@ document.getElementById('graphBtns').addEventListener('click', e => {
 
 document.getElementById('phaseUnwrapChk').addEventListener('change', e => {
   viewState.phaseUnwrap = e.target.checked;
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  redraw();
+});
+
+let freqRangeDebounce = null;
+function applyFreqRange() {
+  const fMin = toHz(+freqStartValEl.value, freqStartUnitEl.value);
+  const fMax = toHz(+freqStopValEl.value,  freqStopUnitEl.value);
+  if (!isFinite(fMin) || !isFinite(fMax) || fMin >= fMax || fMin < 0) return;
+  viewState.zoom = { fMin, fMax };
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  redraw();
+}
+function scheduleApplyFreqRange() {
+  clearTimeout(freqRangeDebounce);
+  freqRangeDebounce = setTimeout(applyFreqRange, 250);
+}
+
+[freqStartValEl, freqStopValEl].forEach(el => {
+  el.addEventListener('input', scheduleApplyFreqRange);
+});
+function setupUnitHandler(unitEl, valEl, getHz) {
+  unitEl.addEventListener('change', () => {
+    clearTimeout(freqRangeDebounce);
+    const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+    const u = unitEl.value;
+    valEl.value = +hzToUnit(getHz(), u).toPrecision(6);
+    valEl.min   = +hzToUnit(gMin, u).toPrecision(6);
+    valEl.max   = +hzToUnit(gMax, u).toPrecision(6);
+  });
+}
+setupUnitHandler(freqStartUnitEl, freqStartValEl, () => getFreqRange().fMin);
+setupUnitHandler(freqStopUnitEl,  freqStopValEl,  () => getFreqRange().fMax);
+document.getElementById('freqRangeResetBtn').addEventListener('click', () => {
+  viewState.zoom = { fMin: null, fMax: null };
   viewState.markers = [null, null];
   updateMarkerPanel();
   redraw();
