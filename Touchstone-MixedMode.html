@@ -9,11 +9,7 @@
 <link rel="stylesheet" href="lib/shared.css">
 <style>
 body { padding: 2rem 1rem; }
-
-.app {
-  max-width: 820px;
-  margin: 0 auto;
-}
+.app { max-width: 820px; margin: 0 auto; }
 
 header {
   margin-bottom: 2rem;
@@ -23,15 +19,7 @@ header {
   align-items: baseline;
   gap: 1rem;
 }
-
-.logo {
-  font-family: var(--mono);
-  font-size: 1.1rem;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-
+.logo { font-family: var(--mono); font-size: 1.1rem; font-weight: 500; letter-spacing: -0.02em; }
 .logo span { color: var(--accent-mid); }
 
 .panel {
@@ -41,7 +29,6 @@ header {
   padding: 1.25rem;
   margin-bottom: 1rem;
 }
-
 .panel-title {
   font-size: 0.6875rem;
   font-weight: 600;
@@ -51,6 +38,7 @@ header {
   margin-bottom: 0.875rem;
 }
 
+/* Drop zone */
 .drop-zone {
   border: 1.5px dashed var(--border-mid);
   border-radius: var(--radius);
@@ -60,55 +48,83 @@ header {
   transition: border-color 0.15s, background 0.15s;
   position: relative;
 }
-
 .drop-label { font-size: 0.875rem; color: var(--text-muted); }
 .drop-sub { font-size: 0.75rem; color: var(--text-faint); margin-top: 0.25rem; font-family: var(--mono); }
 
+/* File loaded bar */
 .file-loaded {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.625rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   background: var(--accent-bg);
   border: 1px solid #A8D9C8;
   border-radius: var(--radius);
-  font-size: 0.8125rem;
   margin-top: 0.75rem;
 }
-
-.file-loaded-name { font-family: var(--mono); font-size: 0.775rem; flex: 1; color: var(--accent); }
-.file-loaded-meta { font-size: 0.7rem; color: var(--text-faint); font-family: var(--mono); }
-
+.file-loaded-name { font-family: var(--mono); font-size: 0.775rem; flex: 1; color: var(--accent); word-break: break-all; }
+.file-loaded-meta { font-size: 0.7rem; color: var(--text-faint); font-family: var(--mono); white-space: nowrap; }
 .clear-file-btn {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.4rem;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-faint);
-  cursor: pointer;
-  transition: all 0.12s;
+  font-size: 0.7rem; padding: 0.15rem 0.4rem;
+  border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: var(--text-faint); cursor: pointer; transition: all 0.12s;
 }
 .clear-file-btn:hover { background: var(--error-bg); color: var(--error); }
 
-/* Port pair config */
-.preset-row {
+/* Section sub-label */
+.sub-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+
+/* Port pool */
+.port-pool {
+  min-height: 48px;
+  border: 1.5px dashed var(--border-mid);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: flex-start;
+  align-content: flex-start;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 1.125rem;
+}
+.port-pool.drag-over { border-color: var(--accent-mid); background: var(--accent-bg); }
+.pool-empty { font-size: 0.7rem; color: var(--text-faint); font-family: var(--mono); align-self: center; }
+
+/* Port chips */
+.port-chip {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.275rem 0.6rem;
+  border-radius: 4px;
+  cursor: grab;
+  user-select: none;
+  transition: border-color 0.12s, opacity 0.12s;
+  white-space: nowrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.port-chip:hover { border-color: var(--accent-mid); }
+.port-chip.dragging { opacity: 0.25; cursor: grabbing; }
+.port-chip.chip-pos { background: var(--accent-bg); border-color: #9DD0BB; color: var(--accent); }
+.port-chip.chip-neg { background: var(--error-bg);  border-color: #E0B0A0; color: var(--error); }
+
+/* Pairs header */
+.pairs-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
 }
-
-.preset-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-right: 0.25rem;
-}
+.pairs-title { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; color: var(--text-muted); }
 
 .preset-btn {
   font-family: var(--mono);
-  font-size: 0.75rem;
-  padding: 0.3rem 0.7rem;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -117,228 +133,182 @@ header {
   transition: all 0.12s;
 }
 .preset-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
-.preset-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.pair-table {
+.add-pair-btn {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--accent-mid);
+  border-radius: var(--radius);
+  background: var(--accent-bg);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.12s;
+  margin-left: auto;
+}
+.add-pair-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.add-pair-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Pairs container */
+.pairs-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-bottom: 0.75rem;
+}
+.pairs-empty {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
-}
-
-.pair-table th {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-align: center;
+  padding: 1.25rem;
+  font-size: 0.775rem;
   color: var(--text-faint);
-  text-align: left;
-  padding: 0 0.5rem 0.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.pair-table td {
-  padding: 0.5rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.pair-table tr:last-child td { border-bottom: none; }
-
-.pair-label {
   font-family: var(--mono);
-  font-size: 0.775rem;
-  color: var(--text);
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
 }
 
-.pair-label-d { color: var(--accent); }
-.pair-label-c { color: var(--text-muted); }
-
-.port-select {
-  font-family: var(--mono);
-  font-size: 0.775rem;
-  padding: 0.3rem 0.5rem;
+/* Pair card */
+.pair-card {
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color 0.12s;
-  min-width: 80px;
+  padding: 0.625rem;
+  flex: 1 1 210px;
+  max-width: 340px;
 }
-.port-select:hover { border-color: var(--accent-mid); }
-.port-select:focus { outline: none; border-color: var(--accent); }
-
-.port-sign {
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  padding: 0 0.25rem;
+.pair-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
 }
-.port-sign-pos { color: var(--accent); font-weight: 600; }
-.port-sign-neg { color: var(--error); font-weight: 600; }
-
-.port-cell { display: flex; align-items: center; gap: 0.375rem; }
-
-.pair-output {
+.pair-card-name { font-size: 0.75rem; font-weight: 600; color: var(--text); }
+.pair-card-tag {
   font-family: var(--mono);
+  font-size: 0.625rem;
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+}
+.pair-remove-btn {
+  margin-left: auto;
   font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
   color: var(--text-faint);
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1.4;
 }
+.pair-remove-btn:hover { background: var(--error-bg); color: var(--error); }
 
+/* Pair slots */
+.pair-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.375rem;
+}
+.pair-slot {
+  min-height: 60px;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.25rem;
+  transition: border-color 0.12s, background 0.12s;
+}
+.pair-slot.empty    { border: 1.5px dashed var(--border-mid); background: var(--surface); }
+.pair-slot.occupied { border: 1px solid var(--border);        background: var(--surface); }
+.pair-slot.drag-over { border-color: var(--accent-mid) !important; background: var(--accent-bg) !important; }
+
+.slot-sign { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; line-height: 1; }
+.slot-sign-pos { color: var(--accent); }
+.slot-sign-neg { color: var(--error); }
+.slot-hint { font-size: 0.62rem; color: var(--text-faint); font-family: var(--mono); }
+
+/* SE row */
+.se-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.se-label { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+.se-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.se-chip {
+  font-family: var(--mono); font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 3px; color: var(--text-muted);
+}
+.se-none { font-family: var(--mono); font-size: 0.7rem; color: var(--text-faint); }
+
+/* Validation */
 .validation-msg {
   font-size: 0.75rem;
   font-family: var(--mono);
   padding: 0.375rem 0.625rem;
   border-radius: var(--radius);
-  margin-top: 0.5rem;
+  margin-top: 0.625rem;
+  display: none;
 }
-.validation-ok { background: var(--accent-bg); color: var(--accent); }
-.validation-error { background: var(--error-bg); color: var(--error); }
+.validation-msg.show { display: block; }
+.val-ok      { background: var(--accent-bg);  color: var(--accent); }
+.val-warn    { background: var(--warning-bg); color: var(--warning); }
+.val-error   { background: var(--error-bg);   color: var(--error); }
 
-/* Format selector */
-.format-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.format-label {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  min-width: 80px;
-}
-
+/* Output format */
+.format-row { display: flex; align-items: center; gap: 1rem; }
+.format-label { font-size: 0.8125rem; color: var(--text-muted); min-width: 80px; }
 .format-options { display: flex; gap: 0.375rem; }
-
 .fmt-btn {
-  font-family: var(--mono);
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-family: var(--mono); font-size: 0.8125rem; font-weight: 500;
   padding: 0.375rem 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.12s;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); color: var(--text-muted);
+  cursor: pointer; transition: all 0.12s;
 }
 .fmt-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
 .fmt-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.fmt-desc { font-size: 0.75rem; color: var(--text-faint); font-family: var(--mono); }
 
-.fmt-desc {
-  font-size: 0.75rem;
-  color: var(--text-faint);
-  font-family: var(--mono);
-}
-
-/* Result panel */
-.result-info {
+/* Result */
+.result-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
+.result-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; }
+.result-card-label { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 0.3rem; }
+.result-card-value { font-family: var(--mono); font-size: 0.875rem; color: var(--text); word-break: break-all; }
 
-.result-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.75rem;
-}
-
-.result-card-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin-bottom: 0.3rem;
-}
-
-.result-card-value {
-  font-family: var(--mono);
-  font-size: 0.875rem;
-  color: var(--text);
-}
-
-.port-map-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.775rem;
-  font-family: var(--mono);
-}
-
-.port-map-table th {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  text-align: left;
-  padding: 0 0.5rem 0.4rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.port-map-table td {
-  padding: 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text);
-}
-
+.port-map-table { width: 100%; border-collapse: collapse; font-size: 0.775rem; font-family: var(--mono); }
+.port-map-table th { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); text-align: left; padding: 0 0.5rem 0.4rem; border-bottom: 1px solid var(--border); }
+.port-map-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border); }
 .port-map-table tr:last-child td { border-bottom: none; }
 
-.tag-d {
-  display: inline-block;
-  background: var(--accent-bg);
-  color: var(--accent);
-  font-size: 0.65rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-  font-weight: 500;
-}
-
-.tag-c {
-  display: inline-block;
-  background: var(--warning-bg);
-  color: var(--warning);
-  font-size: 0.65rem;
-  padding: 0.1rem 0.35rem;
-  border-radius: 3px;
-  font-weight: 500;
-}
+.tag-d  { display: inline-block; background: var(--accent-bg);  color: var(--accent);  font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; font-weight: 500; }
+.tag-c  { display: inline-block; background: var(--warning-bg); color: var(--warning); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; font-weight: 500; }
+.tag-se { display: inline-block; background: var(--bg); color: var(--text-muted); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; font-weight: 500; border: 1px solid var(--border); }
 
 /* Action bar */
-.action-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.btn {
-  font-family: var(--sans);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  padding: 0.5rem 1.1rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 0.12s;
-  border: 1px solid;
-}
-
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn-primary:hover { background: #0A4F3E; }
-.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.action-bar { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+.btn { font-family: var(--sans); font-size: 0.8125rem; font-weight: 500; padding: 0.5rem 1.1rem; border-radius: var(--radius); cursor: pointer; transition: all 0.12s; border: 1px solid; }
+.btn-primary  { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover  { background: #0A4F3E; }
+.btn-primary:disabled  { opacity: 0.4; cursor: not-allowed; }
 .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
 .btn-secondary:hover { border-color: var(--border-mid); background: var(--bg); }
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-faint);
-  font-size: 0.8125rem;
-}
 </style>
 </head>
 <body>
@@ -346,48 +316,48 @@ header {
 
 <header>
   <div class="logo">Touchstone<span>·</span>MixedMode</div>
-  <div class="subtitle">シングルエンド Sパラメータ → Mixed-mode（差動 / コモン）変換ツール（偶数ポート対応）</div>
+  <div class="subtitle">シングルエンド Sパラメータ → Mixed-mode（差動 / コモン）変換ツール</div>
 </header>
 
 <!-- File input -->
 <div class="panel">
   <div class="panel-title">Input</div>
   <div class="drop-zone" id="dropZone">
-    <input type="file" id="fileInput" accept=".s2p,.s4p,.s6p,.s8p">
+    <input type="file" id="fileInput" accept=".s1p,.s2p,.s3p,.s4p,.s5p,.s6p,.s7p,.s8p,.s9p">
     <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
       <polyline points="17 8 12 3 7 8"/>
       <line x1="12" y1="3" x2="12" y2="15"/>
     </svg>
     <div class="drop-label"><strong>クリックまたはドロップ</strong>して Touchstone ファイルを追加</div>
-    <div class="drop-sub">偶数ポートの .s2p / .s4p / .s6p / .s8p（1 ファイル）</div>
+    <div class="drop-sub">.s1p〜.s9p（1 ファイル）</div>
   </div>
   <div id="fileLoaded" hidden></div>
 </div>
 
-<!-- Port pair config -->
+<!-- Port config -->
 <div class="panel" id="portPanel" hidden>
-  <div class="panel-title">差動ポートペア設定</div>
+  <div class="panel-title">ポート設定</div>
 
-  <div class="preset-row">
-    <span class="preset-label">プリセット:</span>
-    <button class="preset-btn" id="presetSplit" title="ポート 1〜N/2 を正端子、N/2+1〜N を負端子として対応させます">上下分割</button>
-    <button class="preset-btn" id="presetAdjacent" title="奇数ポートを正端子、偶数ポートを負端子として隣接ペアに設定します">隣接ペア</button>
+  <div class="sub-label">未割り当てポート — 差動ペアの + / − スロットにドラッグして割り当て、スロットからここへ戻すことも可</div>
+  <div class="port-pool" id="portPool" data-pool-drop></div>
+
+  <div class="pairs-header">
+    <span class="pairs-title">差動ペア</span>
+    <button class="preset-btn" id="presetSplit"    title="ポート 1〜⌊N/2⌋ を正端子、⌊N/2⌋+1〜N を負端子として対応させます">上下分割</button>
+    <button class="preset-btn" id="presetAdjacent" title="奇数番ポートを正端子・偶数番ポートを負端子として隣接ペアに設定します">隣接ペア</button>
+    <button class="preset-btn" id="presetClear"    title="すべての差動ペアを削除します">クリア</button>
+    <button class="add-pair-btn" id="addPairBtn">＋ ペアを追加</button>
   </div>
 
-  <table class="pair-table" id="pairTable">
-    <thead>
-      <tr>
-        <th>差動ポート</th>
-        <th>正端子 (+)</th>
-        <th>負端子 (−)</th>
-        <th>出力ポート</th>
-      </tr>
-    </thead>
-    <tbody id="pairBody"></tbody>
-  </table>
+  <div class="pairs-container" id="pairsContainer"></div>
 
-  <div id="pairValidation" class="validation-msg validation-ok" hidden></div>
+  <div class="se-row">
+    <span class="se-label">シングルエンド出力:</span>
+    <div id="sePorts"></div>
+  </div>
+
+  <div class="validation-msg" id="pairValidation"></div>
 </div>
 
 <!-- Output format -->
@@ -407,13 +377,13 @@ header {
 <!-- Result -->
 <div class="panel" id="resultPanel" hidden>
   <div class="panel-title">変換結果</div>
-  <div class="result-info" id="resultInfo"></div>
+  <div class="result-grid" id="resultInfo"></div>
   <div id="portMapWrap"></div>
 </div>
 
 <div class="action-bar">
   <button class="btn btn-secondary" id="convertBtn" disabled>変換する</button>
-  <button class="btn btn-primary" id="dlBtn" disabled>ダウンロード</button>
+  <button class="btn btn-primary"   id="dlBtn"      disabled>ダウンロード</button>
 </div>
 
 </div><!-- .app -->
@@ -422,7 +392,6 @@ header {
 <script src="lib/ui-helpers.js"></script>
 <script type="module">
 
-// ── Constants ──────────────────────────────────────────────────────────────
 const FORMAT_DESC = {
   DB: '20·log₁₀(mag) + phase [deg]',
   MA: 'sqrt(Re²+Im²) + phase [deg]',
@@ -430,349 +399,344 @@ const FORMAT_DESC = {
 };
 
 // ── State ──────────────────────────────────────────────────────────────────
-let currentFile   = null;
 let parsedData    = null;
 let portCount     = 0;
+let currentFile   = null;
+let pairs         = []; // [{pos: number|null, neg: number|null}]
 let outputFmt     = 'DB';
 let convertedText = null;
 let outputName    = null;
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
-const dropZone      = document.getElementById('dropZone');
-const fileInput     = document.getElementById('fileInput');
-const fileLoadedEl  = document.getElementById('fileLoaded');
-const portPanel     = document.getElementById('portPanel');
-const formatPanel   = document.getElementById('formatPanel');
-const resultPanel   = document.getElementById('resultPanel');
-const pairBody      = document.getElementById('pairBody');
-const pairValidEl   = document.getElementById('pairValidation');
-const resultInfo    = document.getElementById('resultInfo');
-const portMapWrap   = document.getElementById('portMapWrap');
-const convertBtn    = document.getElementById('convertBtn');
-const dlBtn         = document.getElementById('dlBtn');
-const fmtDesc       = document.getElementById('fmtDesc');
+const dropZone         = document.getElementById('dropZone');
+const fileInput        = document.getElementById('fileInput');
+const fileLoadedEl     = document.getElementById('fileLoaded');
+const portPanel        = document.getElementById('portPanel');
+const portPoolEl       = document.getElementById('portPool');
+const pairsContainerEl = document.getElementById('pairsContainer');
+const sePortsEl        = document.getElementById('sePorts');
+const pairValidEl      = document.getElementById('pairValidation');
+const formatPanel      = document.getElementById('formatPanel');
+const resultPanel      = document.getElementById('resultPanel');
+const resultInfo       = document.getElementById('resultInfo');
+const portMapWrap      = document.getElementById('portMapWrap');
+const convertBtn       = document.getElementById('convertBtn');
+const dlBtn            = document.getElementById('dlBtn');
+const fmtDesc          = document.getElementById('fmtDesc');
+const addPairBtn       = document.getElementById('addPairBtn');
 
-// ── Matrix helpers (M is real, S is complex {re, im}) ─────────────────────
+// ── State helpers ──────────────────────────────────────────────────────────
+function assignedPorts() {
+  const s = new Set();
+  for (const p of pairs) {
+    if (p.pos !== null) s.add(p.pos);
+    if (p.neg !== null) s.add(p.neg);
+  }
+  return s;
+}
+
+function unassignedPorts() {
+  const a = assignedPorts();
+  return Array.from({length: portCount}, (_, i) => i).filter(i => !a.has(i));
+}
+
+function completePairs() {
+  return pairs.filter(p => p.pos !== null && p.neg !== null);
+}
+
+// ── State mutations ────────────────────────────────────────────────────────
+function removeFromPairs(portIdx) {
+  for (const p of pairs) {
+    if (p.pos === portIdx) p.pos = null;
+    if (p.neg === portIdx) p.neg = null;
+  }
+}
+
+function assignToSlot(pairIdx, slot, portIdx) {
+  removeFromPairs(portIdx);
+  pairs[pairIdx][slot] = portIdx;
+  render();
+}
+
+function releaseToPool(portIdx) {
+  removeFromPairs(portIdx);
+  render();
+}
+
+function addPair() {
+  if (pairs.length >= Math.floor(portCount / 2)) return;
+  pairs.push({pos: null, neg: null});
+  render();
+}
+
+function removePair(idx) {
+  pairs.splice(idx, 1);
+  render();
+}
+
+function applyPreset(type) {
+  const half = Math.floor(portCount / 2);
+  pairs = [];
+  if (type === 'split') {
+    for (let i = 0; i < half; i++) pairs.push({pos: i, neg: half + i});
+  } else if (type === 'adjacent') {
+    for (let i = 0; i < half; i++) pairs.push({pos: 2 * i, neg: 2 * i + 1});
+  }
+  render();
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  renderPool();
+  renderPairs();
+  renderSE();
+  renderValidation();
+  invalidateResult();
+}
+
+function renderPool() {
+  const u = unassignedPorts();
+  portPoolEl.innerHTML = u.length
+    ? u.map(i => `<div class="port-chip" draggable="true" data-port="${i}">Port ${i + 1}</div>`).join('')
+    : '<span class="pool-empty">すべてのポートが差動ペアに割り当て済みです</span>';
+}
+
+function renderPairs() {
+  if (!pairs.length) {
+    pairsContainerEl.innerHTML =
+      '<div class="pairs-empty">差動ペアがありません。「ペアを追加」またはプリセットで追加してください。</div>';
+    return;
+  }
+  pairsContainerEl.innerHTML = pairs.map((p, i) => {
+    const posContent = p.pos !== null
+      ? `<div class="port-chip chip-pos" draggable="true" data-port="${p.pos}" data-from-pair="${i}" data-from-slot="pos">Port ${p.pos + 1}</div>`
+      : '<span class="slot-hint">ドロップ</span>';
+    const negContent = p.neg !== null
+      ? `<div class="port-chip chip-neg" draggable="true" data-port="${p.neg}" data-from-pair="${i}" data-from-slot="neg">Port ${p.neg + 1}</div>`
+      : '<span class="slot-hint">ドロップ</span>';
+    return `
+      <div class="pair-card">
+        <div class="pair-card-header">
+          <span class="pair-card-name">差動ペア ${i + 1}</span>
+          <span class="pair-card-tag">d${i + 1} / c${i + 1}</span>
+          <button class="pair-remove-btn" data-remove-pair="${i}">×</button>
+        </div>
+        <div class="pair-slots">
+          <div class="pair-slot ${p.pos !== null ? 'occupied' : 'empty'}"
+               data-drop-pair="${i}" data-drop-slot="pos">
+            <span class="slot-sign slot-sign-pos">+</span>
+            ${posContent}
+          </div>
+          <div class="pair-slot ${p.neg !== null ? 'occupied' : 'empty'}"
+               data-drop-pair="${i}" data-drop-slot="neg">
+            <span class="slot-sign slot-sign-neg">−</span>
+            ${negContent}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderSE() {
+  const se = unassignedPorts();
+  sePortsEl.innerHTML = se.length
+    ? `<div class="se-chips">${se.map(i => `<span class="se-chip">Port ${i + 1}</span>`).join('')}</div>`
+    : '<span class="se-none">なし（全ポート割り当て済み）</span>';
+}
+
+function renderValidation() {
+  const incomplete = pairs.filter(p => p.pos === null || p.neg === null).length;
+  const k  = pairs.length;
+  const se = unassignedPorts().length;
+  let msg, cls;
+
+  if (incomplete > 0) {
+    msg = `${incomplete} つのペアが未完成です（+ と − の両方にポートを設定してください）`;
+    cls = 'val-error';
+    convertBtn.disabled = true;
+  } else if (k === 0) {
+    msg = `差動ペアがありません。全 ${portCount} ポートがシングルエンドのまま出力されます。`;
+    cls = 'val-warn';
+    convertBtn.disabled = !parsedData;
+  } else {
+    const seNote = se > 0 ? ` + SE ×${se}` : '';
+    msg = `差動ペア ${k} 組 → d1…d${k}, c1…c${k}${seNote}`;
+    cls = 'val-ok';
+    convertBtn.disabled = !parsedData;
+  }
+
+  pairValidEl.textContent = msg;
+  pairValidEl.className = `validation-msg show ${cls}`;
+  addPairBtn.disabled = pairs.length >= Math.floor(portCount / 2);
+}
+
+function invalidateResult() {
+  convertedText = null;
+  dlBtn.disabled = true;
+  resultPanel.hidden = true;
+}
+
+// ── Drag & Drop ────────────────────────────────────────────────────────────
+let dragState = null;
+
+document.addEventListener('dragstart', e => {
+  const chip = e.target.closest('[data-port]');
+  if (!chip) return;
+  dragState = {portIdx: parseInt(chip.dataset.port)};
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', chip.dataset.port); // required for Firefox
+  requestAnimationFrame(() => chip.classList.add('dragging'));
+});
+
+document.addEventListener('dragend', () => {
+  document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragState = null;
+});
+
+document.addEventListener('dragover', e => {
+  if (!dragState) return;
+  const zone = e.target.closest('[data-drop-pair], [data-pool-drop]');
+  if (!zone) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  zone.classList.add('drag-over');
+});
+
+document.addEventListener('dragleave', e => {
+  const zone = e.target.closest('[data-drop-pair], [data-pool-drop]');
+  if (!zone) return;
+  if (e.relatedTarget && zone.contains(e.relatedTarget)) return;
+  zone.classList.remove('drag-over');
+});
+
+document.addEventListener('drop', e => {
+  if (!dragState) return;
+  const zone = e.target.closest('[data-drop-pair], [data-pool-drop]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  if ('poolDrop' in zone.dataset) {
+    releaseToPool(dragState.portIdx);
+  } else {
+    assignToSlot(parseInt(zone.dataset.dropPair), zone.dataset.dropSlot, dragState.portIdx);
+  }
+});
+
+// Remove pair button (delegated)
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-remove-pair]');
+  if (btn) removePair(parseInt(btn.dataset.removePair));
+});
+
+// ── Matrix helpers ─────────────────────────────────────────────────────────
 
 /**
- * Build the mode transformation matrix M (2N × 2N, real).
- * pairsConfig: [{pos, neg}] (0-indexed port numbers), length = N
- * Row i     (0..N-1): differential d_{i+1}  → +1/√2 at pos, -1/√2 at neg
- * Row N+i   (0..N-1): common-mode  c_{i+1}  → +1/√2 at pos, +1/√2 at neg
+ * Build M (n×n, real orthogonal):
+ *   rows 0..k-1   : differential  d_i  (+1/√2 at pos, -1/√2 at neg)
+ *   rows k..2k-1  : common-mode   c_i  (+1/√2 at pos, +1/√2 at neg)
+ *   rows 2k..n-1  : SE passthrough (identity row for each unassigned port)
  */
-function buildM(pairsConfig, twoN) {
+function buildM(cfg, n) {
   const inv2 = 1 / Math.sqrt(2);
-  const N = pairsConfig.length;
-  const M = Array.from({ length: twoN }, () => new Float64Array(twoN));
-  for (let i = 0; i < N; i++) {
-    const { pos, neg } = pairsConfig[i];
-    M[i][pos]     =  inv2;
-    M[i][neg]     = -inv2;
-    M[N + i][pos] =  inv2;
-    M[N + i][neg] =  inv2;
+  const k = cfg.length;
+  const assigned = new Set(cfg.flatMap(p => [p.pos, p.neg]));
+  const sePorts  = Array.from({length: n}, (_, i) => i).filter(i => !assigned.has(i));
+
+  const M = Array.from({length: n}, () => new Float64Array(n));
+  for (let i = 0; i < k; i++) {
+    M[i][cfg[i].pos]       =  inv2;
+    M[i][cfg[i].neg]       = -inv2;
+    M[k + i][cfg[i].pos]   =  inv2;
+    M[k + i][cfg[i].neg]   =  inv2;
+  }
+  for (let j = 0; j < sePorts.length; j++) {
+    M[2 * k + j][sePorts[j]] = 1;
   }
   return M;
 }
 
-/**
- * Convert parsed pairs array to row-major complex S-matrix.
- * Handles the Touchstone 1.0 quirk: 2-port uses column-major ordering.
- */
-function pairsToMatrix(pairs, n, inFmt) {
-  const S = Array.from({ length: n }, () =>
-    Array.from({ length: n }, () => ({ re: 0, im: 0 }))
-  );
+// Touchstone 1.0 quirk: 2-port uses column-major ordering, N>2 uses row-major.
+function pairsToMatrix(rawPairs, n, inFmt) {
+  const S = Array.from({length: n}, () => Array.from({length: n}, () => ({re: 0, im: 0})));
   for (let j = 0; j < n * n; j++) {
-    const [a, b] = pairs[j];
-    const [re, im] = TT.toRI(a, b, inFmt);
-    let row, col;
-    if (n === 2) {
-      col = Math.floor(j / n);
-      row = j % n;
-    } else {
-      row = Math.floor(j / n);
-      col = j % n;
-    }
-    S[row][col] = { re, im };
+    const [re, im] = TT.toRI(rawPairs[j][0], rawPairs[j][1], inFmt);
+    const [row, col] = n === 2 ? [j % n, Math.floor(j / n)] : [Math.floor(j / n), j % n];
+    S[row][col] = {re, im};
   }
   return S;
 }
 
-/**
- * Convert row-major complex S-matrix to output pairs array.
- * Applies the same ordering convention as input (2-port = column-major).
- */
 function matrixToPairs(S, n, outFmt) {
-  const pairs = [];
-  for (let j = 0; j < n * n; j++) {
-    let row, col;
-    if (n === 2) {
-      col = Math.floor(j / n);
-      row = j % n;
-    } else {
-      row = Math.floor(j / n);
-      col = j % n;
-    }
-    const { re, im } = S[row][col];
-    pairs.push(TT.fromRI(re, im, outFmt));
-  }
-  return pairs;
+  return Array.from({length: n * n}, (_, j) => {
+    const [row, col] = n === 2 ? [j % n, Math.floor(j / n)] : [Math.floor(j / n), j % n];
+    return TT.fromRI(S[row][col].re, S[row][col].im, outFmt);
+  });
 }
 
-/**
- * Compute S_mm = M × S_se × M^T  (M is real, S is complex)
- */
+// S_mm = M × S_se × M^T  (M is real orthogonal → M^-1 = M^T)
 function mixedModeTransform(Sse, M, n) {
   // Step 1: temp = S_se × M^T  →  temp[i][j] = Σ_k Sse[i][k] * M[j][k]
-  const temp = Array.from({ length: n }, () =>
-    Array.from({ length: n }, () => ({ re: 0, im: 0 }))
-  );
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
+  const temp = Array.from({length: n}, (_, i) =>
+    Array.from({length: n}, (_, j) => {
       let re = 0, im = 0;
-      for (let k = 0; k < n; k++) {
-        re += Sse[i][k].re * M[j][k];
-        im += Sse[i][k].im * M[j][k];
-      }
-      temp[i][j] = { re, im };
-    }
-  }
+      for (let k = 0; k < n; k++) { re += Sse[i][k].re * M[j][k]; im += Sse[i][k].im * M[j][k]; }
+      return {re, im};
+    })
+  );
   // Step 2: S_mm = M × temp  →  Smm[i][j] = Σ_k M[i][k] * temp[k][j]
-  const Smm = Array.from({ length: n }, () =>
-    Array.from({ length: n }, () => ({ re: 0, im: 0 }))
-  );
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
+  return Array.from({length: n}, (_, i) =>
+    Array.from({length: n}, (_, j) => {
       let re = 0, im = 0;
-      for (let k = 0; k < n; k++) {
-        re += M[i][k] * temp[k][j].re;
-        im += M[i][k] * temp[k][j].im;
-      }
-      Smm[i][j] = { re, im };
-    }
-  }
-  return Smm;
+      for (let k = 0; k < n; k++) { re += M[i][k] * temp[k][j].re; im += M[i][k] * temp[k][j].im; }
+      return {re, im};
+    })
+  );
 }
 
-// ── Conversion ─────────────────────────────────────────────────────────────
-function getPairsConfig() {
-  const rows = pairBody.querySelectorAll('tr');
-  return Array.from(rows).map(tr => ({
-    pos: parseInt(tr.querySelector('[data-role="pos"]').value, 10),
-    neg: parseInt(tr.querySelector('[data-role="neg"]').value, 10),
-  }));
-}
+// ── Output builder ─────────────────────────────────────────────────────────
+function buildOutputTouchstone(parsed, n, cfg, outFmt) {
+  const {comments, optionLine, inFmt, freqData} = parsed;
+  const k = cfg.length;
+  const assigned = new Set(cfg.flatMap(p => [p.pos, p.neg]));
+  const sePorts  = Array.from({length: n}, (_, i) => i).filter(i => !assigned.has(i));
+  const newOpt   = optionLine.replace(new RegExp(`\\b${inFmt}\\b`, 'i'), outFmt);
 
-function buildOutputTouchstone(parsed, n, pairsConfig, outFmt) {
-  const { comments, optionLine, inFmt, freqData } = parsed;
-  const N = pairsConfig.length;
-
-  const newOpt = optionLine.replace(new RegExp(`\\b${inFmt}\\b`, 'i'), outFmt);
-
-  const outputLines = [
+  const lines = [
     ...comments,
-    `! [Mixed-mode] Generated by Touchstone-MixedMode Tool`,
-    `! Single-ended → Mixed-mode (balanced) S-parameter conversion`,
-    `! Output port mapping:`,
-    ...pairsConfig.map((p, i) =>
-      `!   Port ${i + 1} [d${i + 1}]: differential, SE-port ${p.pos + 1}(+) / ${p.neg + 1}(-)`
-    ),
-    ...pairsConfig.map((p, i) =>
-      `!   Port ${N + i + 1} [c${i + 1}]: common-mode,  SE-port ${p.pos + 1}(+) / ${p.neg + 1}(-)`
-    ),
+    '! [Mixed-mode] Generated by Touchstone-MixedMode Tool',
+    '! Single-ended → Mixed-mode S-parameter conversion',
+    '! Output port mapping:',
+    ...cfg.map((p, i)   => `!   Port ${i + 1}       [d${i + 1}]: differential  SE-Port ${p.pos + 1}(+) / ${p.neg + 1}(-)`),
+    ...cfg.map((p, i)   => `!   Port ${k + i + 1}   [c${i + 1}]: common-mode   SE-Port ${p.pos + 1}(+) / ${p.neg + 1}(-)`),
+    ...sePorts.map((p, j) => `!   Port ${2*k + j + 1} [SE]:  single-ended  SE-Port ${p + 1}`),
     newOpt,
   ];
 
-  const M = buildM(pairsConfig, n);
+  const M = buildM(cfg, n);
 
-  for (const { freq, pairs } of freqData) {
-    const Sse  = pairsToMatrix(pairs, n, inFmt);
-    const Smm  = mixedModeTransform(Sse, M, n);
+  for (const {freq, pairs: rawPairs} of freqData) {
+    const Smm  = mixedModeTransform(pairsToMatrix(rawPairs, n, inFmt), M, n);
     const outP = matrixToPairs(Smm, n, outFmt);
-
     if (n <= 2) {
-      outputLines.push([String(freq), ...outP.flat().map(v => v.toExponential(6))].join('\t'));
+      lines.push([String(freq), ...outP.flat().map(v => v.toExponential(6))].join('\t'));
     } else {
       for (let row = 0; row < n; row++) {
         const vals = outP.slice(row * n, (row + 1) * n).flat().map(v => v.toExponential(6));
-        outputLines.push((row === 0 ? [String(freq), ...vals] : vals).join('\t'));
+        lines.push((row === 0 ? [String(freq), ...vals] : vals).join('\t'));
       }
     }
   }
-
-  return outputLines.join('\n') + '\n';
-}
-
-// ── Validation ─────────────────────────────────────────────────────────────
-function validatePairs(cfg, n) {
-  const used = new Set();
-  for (let i = 0; i < cfg.length; i++) {
-    const { pos, neg } = cfg[i];
-    if (pos === neg) return { ok: false, msg: `ペア ${i + 1}: 正端子と負端子が同じポートです (ポート ${pos + 1})` };
-    if (used.has(pos)) return { ok: false, msg: `ポート ${pos + 1} が複数のペアで使われています` };
-    if (used.has(neg)) return { ok: false, msg: `ポート ${neg + 1} が複数のペアで使われています` };
-    used.add(pos);
-    used.add(neg);
-  }
-  return { ok: true, msg: `${n} ポート → ${cfg.length} 差動ペア (d1…d${cfg.length}, c1…c${cfg.length})` };
-}
-
-// ── Port config UI ─────────────────────────────────────────────────────────
-function buildPortSelect(pairs, n, role, defaultIdx) {
-  const sel = document.createElement('select');
-  sel.className = 'port-select';
-  sel.dataset.role = role;
-  for (let i = 0; i < n; i++) {
-    const opt = document.createElement('option');
-    opt.value = String(i);
-    opt.textContent = `Port ${i + 1}`;
-    if (i === defaultIdx) opt.selected = true;
-    sel.appendChild(opt);
-  }
-  sel.addEventListener('change', onPairChange);
-  return sel;
-}
-
-function buildPairRows(n) {
-  const N = n / 2;
-  pairBody.innerHTML = '';
-  for (let i = 0; i < N; i++) {
-    const tr = document.createElement('tr');
-
-    // Differential port label
-    const tdLabel = document.createElement('td');
-    tdLabel.innerHTML = `<span class="pair-label pair-label-d">d${i + 1}</span>`;
-    tr.appendChild(tdLabel);
-
-    // Positive port
-    const tdPos = document.createElement('td');
-    const cellPos = document.createElement('div');
-    cellPos.className = 'port-cell';
-    cellPos.innerHTML = `<span class="port-sign port-sign-pos">+</span>`;
-    cellPos.appendChild(buildPortSelect(null, n, 'pos', i));
-    tdPos.appendChild(cellPos);
-    tr.appendChild(tdPos);
-
-    // Negative port
-    const tdNeg = document.createElement('td');
-    const cellNeg = document.createElement('div');
-    cellNeg.className = 'port-cell';
-    cellNeg.innerHTML = `<span class="port-sign port-sign-neg">−</span>`;
-    cellNeg.appendChild(buildPortSelect(null, n, 'neg', N + i));
-    tdNeg.appendChild(cellNeg);
-    tr.appendChild(tdNeg);
-
-    // Output port labels
-    const tdOut = document.createElement('td');
-    tdOut.innerHTML = `<span class="pair-output">→ Port ${i + 1} <span class="tag-d">d${i + 1}</span> / Port ${N + i + 1} <span class="tag-c">c${i + 1}</span></span>`;
-    tr.appendChild(tdOut);
-
-    pairBody.appendChild(tr);
-  }
-  onPairChange();
-}
-
-function applyPreset(type) {
-  const n = portCount;
-  const N = n / 2;
-  const rows = pairBody.querySelectorAll('tr');
-  rows.forEach((tr, i) => {
-    const posEl = tr.querySelector('[data-role="pos"]');
-    const negEl = tr.querySelector('[data-role="neg"]');
-    if (type === 'split') {
-      posEl.value = String(i);
-      negEl.value = String(N + i);
-    } else {
-      posEl.value = String(2 * i);
-      negEl.value = String(2 * i + 1);
-    }
-  });
-  document.getElementById('presetSplit').classList.toggle('active', type === 'split');
-  document.getElementById('presetAdjacent').classList.toggle('active', type === 'adjacent');
-  onPairChange();
-}
-
-function onPairChange() {
-  const cfg = getPairsConfig();
-  const v = validatePairs(cfg, portCount);
-  pairValidEl.textContent = v.msg;
-  pairValidEl.className = `validation-msg ${v.ok ? 'validation-ok' : 'validation-error'}`;
-  pairValidEl.hidden = false;
-  convertBtn.disabled = !v.ok || !parsedData;
-
-  // Reset result on config change
-  convertedText = null;
-  dlBtn.disabled = true;
-  resultPanel.hidden = true;
-}
-
-// ── File loading ───────────────────────────────────────────────────────────
-async function loadFile(file) {
-  const n = TT.portCount(file.name);
-  if (n % 2 !== 0 || n < 2 || n > 8) {
-    showFileError(`ポート数 ${n} は非対応です。偶数ポート（2, 4, 6, 8）の Touchstone ファイルを使用してください。`);
-    return;
-  }
-
-  let parsed;
-  try {
-    const text = await file.text();
-    parsed = TT.parseTouchstone(text, n);
-  } catch (err) {
-    showFileError(err.message);
-    return;
-  }
-
-  currentFile = file;
-  parsedData  = parsed;
-  portCount   = n;
-  convertedText = null;
-
-  // Show file info
-  fileLoadedEl.innerHTML = `
-    <span class="file-loaded-name">${TT.escHtml(file.name)}</span>
-    <span class="file-loaded-meta">${n}ポート · ${parsed.freqData.length} 周波数点 · ${parsed.inFmt} · ${TT.fmt_size(file.size)}</span>
-    <button class="clear-file-btn" id="clearFileBtn">✕</button>
-  `;
-  fileLoadedEl.className = 'file-loaded';
-  fileLoadedEl.hidden = false;
-  document.getElementById('clearFileBtn').addEventListener('click', clearFile);
-
-  buildPairRows(n);
-  applyPreset('split');
-
-  portPanel.hidden   = false;
-  formatPanel.hidden = false;
-  resultPanel.hidden = true;
-  dlBtn.disabled = true;
-}
-
-function showFileError(msg) {
-  fileLoadedEl.innerHTML = `<span style="color:var(--error);font-size:0.8rem;font-family:var(--mono)">${TT.escHtml(msg)}</span>`;
-  fileLoadedEl.className = '';
-  fileLoadedEl.hidden = false;
-}
-
-function clearFile() {
-  currentFile = parsedData = null;
-  portCount = 0;
-  convertedText = null;
-  fileInput.value = '';
-  fileLoadedEl.hidden = true;
-  portPanel.hidden = formatPanel.hidden = resultPanel.hidden = true;
-  convertBtn.disabled = dlBtn.disabled = true;
+  return lines.join('\n') + '\n';
 }
 
 // ── Conversion ─────────────────────────────────────────────────────────────
 convertBtn.addEventListener('click', () => {
   if (!parsedData) return;
-  const cfg = getPairsConfig();
-  const v = validatePairs(cfg, portCount);
-  if (!v.ok) return;
-
+  const cfg = completePairs();
   convertBtn.textContent = '変換中…';
   convertBtn.disabled = true;
-
   setTimeout(() => {
     try {
       convertedText = buildOutputTouchstone(parsedData, portCount, cfg, outputFmt);
@@ -789,8 +753,9 @@ convertBtn.addEventListener('click', () => {
 });
 
 function showResult(cfg) {
-  const N = cfg.length;
-  const n = portCount;
+  const k       = cfg.length;
+  const assigned = new Set(cfg.flatMap(p => [p.pos, p.neg]));
+  const sePorts  = Array.from({length: portCount}, (_, i) => i).filter(i => !assigned.has(i));
 
   resultInfo.innerHTML = `
     <div class="result-card">
@@ -802,14 +767,13 @@ function showResult(cfg) {
       <div class="result-card-value">${TT.escHtml(outputName)}</div>
     </div>
     <div class="result-card">
-      <div class="result-card-label">差動ペア数</div>
-      <div class="result-card-value">${N} ペア (${n} ポート)</div>
+      <div class="result-card-label">差動ペア / SE</div>
+      <div class="result-card-value">${k} ペア / ${sePorts.length} ポート</div>
     </div>
     <div class="result-card">
       <div class="result-card-label">周波数点数</div>
       <div class="result-card-value">${parsedData.freqData.length} 点</div>
-    </div>
-  `;
+    </div>`;
 
   const rows = [
     ...cfg.map((p, i) => `
@@ -817,23 +781,26 @@ function showResult(cfg) {
         <td>Port ${i + 1}</td>
         <td><span class="tag-d">差動 d${i + 1}</span></td>
         <td>SE-Port ${p.pos + 1}(+) / ${p.neg + 1}(−)</td>
-      </tr>
-    `),
+      </tr>`),
     ...cfg.map((p, i) => `
       <tr>
-        <td>Port ${N + i + 1}</td>
+        <td>Port ${k + i + 1}</td>
         <td><span class="tag-c">コモン c${i + 1}</span></td>
         <td>SE-Port ${p.pos + 1}(+) / ${p.neg + 1}(−)</td>
-      </tr>
-    `),
+      </tr>`),
+    ...sePorts.map((p, j) => `
+      <tr>
+        <td>Port ${2 * k + j + 1}</td>
+        <td><span class="tag-se">SE</span></td>
+        <td>SE-Port ${p + 1}</td>
+      </tr>`),
   ].join('');
 
   portMapWrap.innerHTML = `
     <table class="port-map-table">
       <thead><tr><th>出力ポート</th><th>モード</th><th>元のポート</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>
-  `;
+    </table>`;
 
   resultPanel.hidden = false;
 }
@@ -841,10 +808,9 @@ function showResult(cfg) {
 // ── Download ───────────────────────────────────────────────────────────────
 dlBtn.addEventListener('click', () => {
   if (!convertedText || !outputName) return;
-  const blob = new Blob([convertedText], { type: 'text/plain' });
+  const blob = new Blob([convertedText], {type: 'text/plain'});
   const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'), { href: url, download: outputName });
-  a.click();
+  Object.assign(document.createElement('a'), {href: url, download: outputName}).click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
@@ -854,24 +820,72 @@ document.querySelectorAll('.fmt-btn').forEach(btn => {
     outputFmt = btn.dataset.fmt;
     document.querySelectorAll('.fmt-btn').forEach(b => b.classList.toggle('active', b === btn));
     fmtDesc.textContent = FORMAT_DESC[outputFmt];
-    convertedText = null;
-    dlBtn.disabled = true;
-    resultPanel.hidden = true;
+    invalidateResult();
   });
 });
 
-// ── Presets ────────────────────────────────────────────────────────────────
-document.getElementById('presetSplit').addEventListener('click', () => applyPreset('split'));
+// ── Presets & add pair ─────────────────────────────────────────────────────
+document.getElementById('presetSplit').addEventListener('click',    () => applyPreset('split'));
 document.getElementById('presetAdjacent').addEventListener('click', () => applyPreset('adjacent'));
+document.getElementById('presetClear').addEventListener('click',    () => applyPreset('clear'));
+addPairBtn.addEventListener('click', addPair);
 
-// ── File input ─────────────────────────────────────────────────────────────
-fileInput.addEventListener('change', e => {
-  if (e.target.files[0]) loadFile(e.target.files[0]);
-});
+// ── File loading ───────────────────────────────────────────────────────────
+async function loadFile(file) {
+  let n;
+  try { n = TT.portCount(file.name); }
+  catch (e) { showFileError(e.message); return; }
 
+  let parsed;
+  try {
+    parsed = TT.parseTouchstone(await file.text(), n);
+  } catch (err) {
+    showFileError(err.message);
+    return;
+  }
+
+  currentFile   = file;
+  parsedData    = parsed;
+  portCount     = n;
+  pairs         = [];
+  convertedText = null;
+
+  fileLoadedEl.innerHTML = `
+    <span class="file-loaded-name">${TT.escHtml(file.name)}</span>
+    <span class="file-loaded-meta">${n} ポート · ${parsed.freqData.length} 周波数点 · ${parsed.inFmt} · ${TT.fmt_size(file.size)}</span>
+    <button class="clear-file-btn" id="clearFileBtn">✕</button>`;
+  fileLoadedEl.className = 'file-loaded';
+  fileLoadedEl.hidden = false;
+  document.getElementById('clearFileBtn').addEventListener('click', clearFile);
+
+  applyPreset(n % 2 === 0 ? 'split' : 'adjacent');
+
+  portPanel.hidden   = false;
+  formatPanel.hidden = false;
+  resultPanel.hidden = true;
+  dlBtn.disabled = true;
+}
+
+function showFileError(msg) {
+  fileLoadedEl.innerHTML = `<span style="color:var(--error);font-size:0.8rem;font-family:var(--mono)">${TT.escHtml(msg)}</span>`;
+  fileLoadedEl.hidden = false;
+}
+
+function clearFile() {
+  currentFile = parsedData = null;
+  portCount = 0;
+  pairs = [];
+  convertedText = null;
+  fileInput.value = '';
+  fileLoadedEl.hidden = true;
+  portPanel.hidden = formatPanel.hidden = resultPanel.hidden = true;
+  convertBtn.disabled = dlBtn.disabled = true;
+}
+
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
 TT.setupDropZone(dropZone, files => {
-  const snp = Array.from(files).find(f => /\.s\d+p$/i.test(f.name));
-  if (snp) loadFile(snp);
+  const f = Array.from(files).find(f => /\.s\d+p$/i.test(f.name));
+  if (f) loadFile(f);
 });
 </script>
 </body>
