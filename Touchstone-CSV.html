@@ -15,65 +15,6 @@ body { padding: 2rem 1rem; }
   margin: 0 auto;
 }
 
-header {
-  margin-bottom: 2rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-}
-
-.logo {
-  font-family: var(--mono);
-  font-size: 1.1rem;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-
-.logo span { color: var(--accent-mid); }
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-}
-
-.panel-title {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 0.875rem;
-}
-
-/* Drop zone */
-.drop-zone {
-  border: 1.5px dashed var(--border-mid);
-  border-radius: var(--radius);
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  position: relative;
-}
-
-.drop-label {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.drop-sub {
-  font-size: 0.75rem;
-  color: var(--text-faint);
-  margin-top: 0.25rem;
-  font-family: var(--mono);
-}
-
 /* File info */
 .file-info-grid {
   display: grid;
@@ -248,17 +189,6 @@ canvas#previewCanvas {
 }
 
 .btn-group { display: flex; gap: 0.5rem; }
-
-.btn {
-  font-family: var(--sans);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  padding: 0.5rem 1.1rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 0.12s;
-  border: 1px solid;
-}
 
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -592,15 +522,7 @@ function renderChannelGrid() {
       e.stopPropagation();
       const k = btn.dataset.key;
       const { i, j } = keyToIJ(k);
-      const csv = buildChannelCSV(i, j);
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), {
-        href: url,
-        download: `S${k}_${parsed.basename}.csv`,
-      });
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      TT.downloadBlob(buildChannelCSV(i, j), `S${k}_${parsed.basename}.csv`, 'text/csv');
     });
   });
 
@@ -707,15 +629,7 @@ dlZipBtn.addEventListener('click', () => {
     });
   }
 
-  const zipBytes = TT.buildZip(files);
-  const blob = new Blob([zipBytes], { type: 'application/zip' });
-  const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'), {
-    href: url,
-    download: `${parsed.basename}_CSV.zip`,
-  });
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  TT.downloadBlob(TT.buildZip(files), `${parsed.basename}_CSV.zip`, 'application/zip');
 
   dlZipBtn.disabled = selected.size === 0;
   dlZipBtn.textContent = 'ZIP でダウンロード';

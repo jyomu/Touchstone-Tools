@@ -2,6 +2,9 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Prevent author display rules from overriding the [hidden] attribute */
+[hidden] { display: none !important; }
+
 :root {
   --bg: #F5F4F1;
   --surface: #FDFCFA;
@@ -31,17 +34,62 @@ body {
   min-height: 100vh;
 }
 
+/* Page header */
+header {
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+/* Logo */
+.logo {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.logo span { color: var(--accent-mid); }
+
 .subtitle {
   font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
+/* Panel */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.panel-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.875rem;
+}
+
 /* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border-mid);
+  border-radius: var(--radius);
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
 .drop-zone:hover, .drop-zone.drag-over {
   border-color: var(--accent-mid);
   background: var(--accent-bg);
 }
-
 .drop-zone input[type="file"] {
   position: absolute;
   inset: 0;
@@ -50,7 +98,6 @@ body {
   width: 100%;
   height: 100%;
 }
-
 .drop-icon {
   display: block;
   width: 32px;
@@ -58,23 +105,42 @@ body {
   margin: 0 auto 0.75rem;
   color: var(--text-faint);
 }
+.drop-label { font-size: 0.875rem; color: var(--text-muted); }
+.drop-label strong { color: var(--accent); font-weight: 500; }
+.drop-sub { font-size: 0.75rem; color: var(--text-faint); margin-top: 0.25rem; font-family: var(--mono); }
 
-.drop-label strong {
-  color: var(--accent);
+/* Output format selector (RI / DB / MA) */
+.format-row { display: flex; align-items: center; gap: 1rem; }
+.format-label { font-size: 0.8125rem; color: var(--text-muted); min-width: 80px; }
+.format-options { display: flex; gap: 0.375rem; }
+.fmt-btn {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
   font-weight: 500;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
 }
+.fmt-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+.fmt-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.fmt-desc { font-size: 0.75rem; color: var(--text-faint); font-family: var(--mono); }
 
 /* Buttons */
-.btn-primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
+.btn {
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.12s;
+  border: 1px solid;
 }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn-primary:hover { background: #0A4F3E; }
-
-.btn-secondary {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--border);
-}
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
 .btn-secondary:hover { border-color: var(--border-mid); background: var(--bg); }
