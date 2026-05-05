@@ -1453,7 +1453,6 @@ function renderSparmGrid() {
     cb.addEventListener('change', () => {
       const key = cb.dataset.key;
       cb.checked ? viewState.visibleParams.add(key) : viewState.visibleParams.delete(key);
-      viewState.zoom = { fMin: null, fMax: null };
       renderAll();
     });
   });
@@ -1611,7 +1610,6 @@ fileList.addEventListener('click', e => {
   }
   if (btn.dataset.action === 'remove') {
     files = files.filter(f => f.id !== id);
-    viewState.zoom = { fMin: null, fMax: null };
     renderAll();
   }
 });
@@ -1697,7 +1695,6 @@ document.getElementById('sparmAllBtn').addEventListener('click', () => {
   sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
     cb.checked = true; viewState.visibleParams.add(cb.dataset.key);
   });
-  viewState.zoom = { fMin: null, fMax: null };
   renderAll();
 });
 
@@ -1879,7 +1876,6 @@ async function loadFiles(fileList_) {
     errBanner.classList.remove('show');
   }
 
-  viewState.zoom = { fMin: null, fMax: null };
   renderAll();
 }
 
