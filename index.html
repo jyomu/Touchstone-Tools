@@ -59,7 +59,7 @@ header p {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1.25rem;
   width: 100%;
-  max-width: 680px;
+  max-width: 860px;
 }
 
 .tool-card {
@@ -90,6 +90,17 @@ header p {
   align-self: flex-start;
 }
 
+.tool-card .label-doc {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  align-self: flex-start;
+}
+
 .tool-card h2 {
   font-size: 1.05rem;
   font-weight: 600;
@@ -99,6 +110,14 @@ header p {
   font-size: 0.875rem;
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+.tool-card p code {
+  font-family: 'IBM Plex Mono', 'Cascadia Code', 'Menlo', monospace;
+  font-size: 0.82em;
+  background: var(--bg);
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
 }
 
 footer {
@@ -135,6 +154,16 @@ footer {
     <span class="label">TOOL</span>
     <h2>Touchstone Mixed-Mode Converter</h2>
     <p>シングルエンド Sパラメータを Mixed-mode（差動 / コモン）に変換します。差動ペアを任意に設定でき、未割り当てポートはシングルエンドのまま出力。.s1p〜.s9p 対応。</p>
+  </a>
+  <a class="tool-card" href="Touchstone-Spec.html">
+    <span class="label-doc">DOC</span>
+    <h2>Touchstone 仕様リファレンス</h2>
+    <p>Touchstone 1.x / 2.0 規格、Keysight 独自 <code>!</code> ヘッダー、バージョン間の組み合わせ挙動をまとめたリファレンス。</p>
+  </a>
+  <a class="tool-card" href="Touchstone-MixedMode-Spec.html">
+    <span class="label-doc">DOC</span>
+    <h2>Mixed-mode Sパラメーター解説</h2>
+    <p>差動・コモンモードの定義、変換行列、行列構造、基準インピーダンス、Touchstone 2.0 での記述方法を詳しく解説。</p>
   </a>
 </div>
 

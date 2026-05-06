@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mixed-mode Sパラメーター 詳細リファレンス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/shared.css">
+<style>
+body { padding: 2rem 1rem; }
+.app { max-width: 860px; margin: 0 auto; }
+
+/* TOC */
+.toc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.125rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.toc-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.toc ol {
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.toc li { font-size: 0.875rem; }
+.toc a { color: var(--accent); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+.toc ol ol { margin-top: 0.25rem; }
+
+/* Section */
+.spec-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.5rem 1.75rem;
+  margin-bottom: 1.25rem;
+}
+.spec-section h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  scroll-margin-top: 1.5rem;
+}
+.section-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  margin-bottom: 0.75rem;
+}
+.spec-section h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 1.25rem 0 0.5rem;
+  padding-left: 0.625rem;
+  border-left: 2px solid var(--accent-mid);
+}
+.spec-section p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+}
+.spec-section p:last-child { margin-bottom: 0; }
+.spec-section ul, .spec-section ol {
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.spec-section ul:last-child, .spec-section ol:last-child { margin-bottom: 0; }
+
+/* Code blocks */
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--text);
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  white-space: pre;
+}
+.code-block .cm  { color: var(--text-faint); }
+.code-block .kw  { color: var(--accent); font-weight: 500; }
+.code-block .val { color: #1A6B8A; }
+.code-block .hi  { color: var(--accent); font-weight: 500; }
+.code-block .neg { color: var(--error); }
+
+/* Inline code */
+code {
+  font-family: var(--mono);
+  font-size: 0.82em;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  color: var(--text);
+}
+
+/* Tables */
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin: 0.75rem 0;
+}
+.spec-table th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  padding: 0.4rem 0.625rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.spec-table td {
+  padding: 0.45rem 0.625rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.spec-table td:first-child { font-family: var(--mono); font-size: 0.775rem; color: var(--text); }
+.spec-table tr:last-child td { border-bottom: none; }
+
+/* Note boxes */
+.note {
+  display: flex;
+  gap: 0.625rem;
+  background: var(--accent-bg);
+  border: 1px solid #A8D9C8;
+  border-radius: var(--radius);
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  margin: 0.75rem 0;
+  line-height: 1.55;
+}
+.note-icon { flex-shrink: 0; margin-top: 0.05rem; }
+.warn { background: var(--warning-bg); border-color: #D4A055; color: var(--warning); }
+.caution { background: var(--error-bg); border-color: #E0A898; color: var(--error); }
+
+/* Matrix display */
+.matrix-wrap {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+.matrix {
+  display: inline-grid;
+  gap: 0;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  position: relative;
+  padding: 0.5rem 1rem;
+}
+.matrix::before, .matrix::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 6px;
+  border: 2px solid var(--text);
+}
+.matrix::before { left: 0; border-right: none; border-radius: 2px 0 0 2px; }
+.matrix::after  { right: 0; border-left: none;  border-radius: 0 2px 2px 0; }
+.matrix-row { display: contents; }
+.matrix-cell {
+  padding: 0.2rem 0.5rem;
+  text-align: center;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.matrix-cell.hi { color: var(--accent); font-weight: 600; }
+.matrix-cell.lo { color: #1A6B8A; font-weight: 600; }
+.matrix-cell.warn { color: var(--warning); font-weight: 600; }
+.matrix-cell.dim { color: var(--text-faint); }
+
+/* Diagram boxes */
+.diagram {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+.diagram .pos { color: var(--accent); font-weight: 600; }
+.diagram .neg { color: var(--error);  font-weight: 600; }
+.diagram .se  { color: #1A6B8A; font-weight: 600; }
+
+/* Port numbering illustration */
+.port-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.port-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+}
+.port-card-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+.port-card pre {
+  font-family: var(--mono);
+  font-size: 0.77rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin: 0;
+  white-space: pre;
+}
+.port-card pre .pos { color: var(--accent); font-weight: 600; }
+.port-card pre .neg { color: var(--error);  font-weight: 600; }
+.port-card pre .mm  { color: #1A6B8A; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<header>
+  <a class="logo" href="index.html">Touchstone<span>Tools</span></a>
+  <span class="subtitle">Mixed-mode Sパラメーター 詳細リファレンス</span>
+</header>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">目次</div>
+  <ol>
+    <li><a href="#overview">Mixed-mode とは</a></li>
+    <li><a href="#ports">ポートモードの定義</a>
+      <ol>
+        <li><a href="#diff-common">差動モードとコモンモード</a></li>
+        <li><a href="#port-numbering">ポート番号の付け方</a></li>
+      </ol>
+    </li>
+    <li><a href="#transform">変換行列と計算式</a>
+      <ol>
+        <li><a href="#M-matrix">モード変換行列 M</a></li>
+        <li><a href="#formula">Mixed-mode S 行列の計算</a></li>
+      </ol>
+    </li>
+    <li><a href="#matrix-struct">Mixed-mode S 行列の構造</a>
+      <ol>
+        <li><a href="#4port">4 ポート（1 差動ペア + 1 差動ペア）</a></li>
+        <li><a href="#block-meaning">各ブロックの意味</a></li>
+      </ol>
+    </li>
+    <li><a href="#impedance">基準インピーダンスの扱い</a></li>
+    <li><a href="#mixed-se">シングルエンドポートとの混在</a></li>
+    <li><a href="#ts2-mixedmode">Touchstone 2.0 における記述方法</a></li>
+    <li><a href="#practical">実用上の注意点</a></li>
+  </ol>
+</div>
+
+<!-- 1. Overview -->
+<div class="spec-section" id="overview">
+  <span class="section-tag">CONCEPT</span>
+  <h2>1. Mixed-mode とは</h2>
+  <p>
+    差動信号（バランス信号）を扱う回路では、各信号ペアを「差動モード」と「コモンモード」の
+    2 つの独立した信号として解析すると便利です。
+    <strong>Mixed-mode Sパラメーター</strong>（別名 <em>Balanced Sパラメーター</em>）は、
+    シングルエンド（不平衡）測定で得た通常の Sパラメーター行列を
+    差動・コモンモード空間に変換したものです。
+  </p>
+  <p>
+    たとえば差動バッファや差動アンプ、差動伝送線路、バランなどの評価に使われます。
+    変換は線形演算なので測定値（シングルエンド S 行列）から計算で求められます。
+    専用のバランス対応 VNA は不要です。
+  </p>
+  <ul>
+    <li><strong>差動モード (D, Differential mode)</strong>：2 本の信号線が逆相で振幅が等しい状態</li>
+    <li><strong>コモンモード (C, Common mode)</strong>：2 本の信号線が同相で振幅が等しい状態</li>
+  </ul>
+</div>
+
+<!-- 2. Ports -->
+<div class="spec-section" id="ports">
+  <span class="section-tag">THEORY</span>
+  <h2>2. ポートモードの定義</h2>
+
+  <h3 id="diff-common">差動モードとコモンモード</h3>
+  <p>
+    差動ペアのポートを <em>p</em>（正側, +）と <em>n</em>（負側, −）とします。
+    各ポートに入る電圧波 (a) と出る電圧波 (b) を用いると、
+    差動・コモンの入射波は次のように定義されます：
+  </p>
+
+  <div class="code-block"><span class="cm">差動モード入射波：</span>
+  a_D = ( a_p − a_n ) / √2
+
+<span class="cm">コモンモード入射波：</span>
+  a_C = ( a_p + a_n ) / √2
+
+<span class="cm">同様に反射波：</span>
+  b_D = ( b_p − b_n ) / √2
+  b_C = ( b_p + b_n ) / √2</div>
+
+  <p>
+    この <code>1/√2</code> の正規化係数はパワー整合（散乱行列のユニタリー性を保つ）のために必要です。
+    ソフトウェアや資料によっては <code>1/2</code> や <code>1/√2</code> の定義が混在しますが、
+    最も普及しているのは <code>1/√2</code> 正規化です（IPC-2341A, Bockelman-Eisenstadt 定義）。
+  </p>
+
+  <h3 id="port-numbering">ポート番号の付け方</h3>
+  <p>
+    Mixed-mode 変換後の行列では、ポートをモードごとにグループ化します。
+    一般的な慣例では「差動ペア番号 + モード」でポートを命名します。
+  </p>
+
+  <div class="port-grid">
+    <div class="port-card">
+      <div class="port-card-title">シングルエンド S 行列（変換前）</div>
+      <pre>ポート 1: <span class="pos">+</span> 側（差動ペア 1, 正）
+ポート 2: <span class="neg">−</span> 側（差動ペア 1, 負）
+ポート 3: <span class="pos">+</span> 側（差動ペア 2, 正）
+ポート 4: <span class="neg">−</span> 側（差動ペア 2, 負）
+  ↓
+  4×4 シングルエンド S 行列</pre>
+    </div>
+    <div class="port-card">
+      <div class="port-card-title">Mixed-mode S 行列（変換後）</div>
+      <pre>ポート 1: <span class="mm">D1</span>（差動ペア 1, 差動モード）
+ポート 2: <span class="mm">C1</span>（差動ペア 1, コモンモード）
+ポート 3: <span class="mm">D2</span>（差動ペア 2, 差動モード）
+ポート 4: <span class="mm">C2</span>（差動ペア 2, コモンモード）
+  ↓
+  4×4 Mixed-mode S 行列</pre>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="note-icon">ℹ</span>
+    <span>
+      ポートの並び順は実装によって異なります。
+      「D1, D2, C1, C2」（差動を先にまとめる）や「D1, C1, D2, C2」（ペアごとにまとめる）など
+      複数の慣例があります。本ツールでは <strong>D1, C1, D2, C2 …</strong>（ペアごと）を採用しています。
+    </span>
+  </div>
+</div>
+
+<!-- 3. 変換行列 -->
+<div class="spec-section" id="transform">
+  <span class="section-tag">MATH</span>
+  <h2>3. 変換行列と計算式</h2>
+
+  <h3 id="M-matrix">モード変換行列 M</h3>
+  <p>
+    差動ペアが 1 組（シングルエンドポート 2 本 → Mixed-mode ポート 2 本）の場合、
+    変換行列 <strong>M</strong> は次の 2×2 行列です：
+  </p>
+
+  <div class="code-block"><span class="cm">差動ペア 1 組の変換行列 M（2×2）：</span>
+
+M = (1/√2) × [ <span class="hi"> 1  −1</span> ]   ← 差動モード行
+              [<span class="hi"> 1   1</span> ]   ← コモンモード行
+
+<span class="cm">入力列ベクトル: [ a_p, a_n ]ᵀ  →  出力: [ a_D, a_C ]ᵀ = M × [ a_p, a_n ]ᵀ</span></div>
+
+  <p>
+    N ポートのうち複数ペアが混在する場合、<strong>M</strong> はブロック対角行列になります。
+    差動ペアが 2 組（4 ポート）なら：
+  </p>
+
+  <div class="code-block"><span class="cm">4 ポート（差動ペア 2 組）の変換行列 M（4×4）：</span>
+<span class="cm">列の順: [p1, n1, p2, n2]  →  行の順: [D1, C1, D2, C2]</span>
+
+        [ <span class="hi"> 1  −1   0   0</span> ]
+M = (1/√2) × [<span class="hi"> 1   1   0   0</span> ]
+        [<span class="hi"> 0   0   1  −1</span> ]
+        [<span class="hi"> 0   0   1   1</span> ]</div>
+
+  <p>
+    シングルエンドポートが混在する場合、そのポートに対応する行・列は
+    <code>[ 1 ]</code>（変換なし）をブロック対角に追加します。
+  </p>
+
+  <h3 id="formula">Mixed-mode S 行列の計算</h3>
+  <p>
+    シングルエンド S 行列を <strong>S_se</strong>、
+    Mixed-mode S 行列を <strong>S_mm</strong> とすると：
+  </p>
+
+  <div class="code-block"><span class="hi">S_mm = M × S_se × M⁻¹</span>
+
+<span class="cm">M は正規直交行列なので M⁻¹ = Mᴴ（複素共役転置）です。
+実装では M⁻¹ を直接計算するのではなく Mᴴ を使うと高速・高精度です。</span>
+
+<span class="cm">展開すると：</span>
+  b_mm = S_mm × a_mm
+       = (M × S_se × Mᴴ) × (M × a_se)
+       = M × b_se
+       = M × S_se × Mᴴ × a_mm   ∴ S_mm = M × S_se × Mᴴ</div>
+
+  <p>
+    具体的に 4 ポート（差動ペア 1 = ポート 1, 2; 差動ペア 2 = ポート 3, 4）の場合、
+    各要素の展開式（RI 形式、基準インピーダンス 50 Ω 共通の場合）：
+  </p>
+
+  <div class="code-block"><span class="cm">── 差動‒差動 (Sdd11) ──</span>
+<span class="hi">Sdd11</span> = ( S11 − S12 − S21 + S22 ) / 2
+
+<span class="cm">── 差動‒差動 (Sdd21) ──</span>
+<span class="hi">Sdd21</span> = ( S31 − S32 − S41 + S42 ) / 2
+
+<span class="cm">── コモン‒コモン (Scc11) ──</span>
+<span class="hi">Scc11</span> = ( S11 + S12 + S21 + S22 ) / 2
+
+<span class="cm">── コモン‒コモン (Scc21) ──</span>
+<span class="hi">Scc21</span> = ( S31 + S32 + S41 + S42 ) / 2
+
+<span class="cm">── 差動→コモン クロス (Scd11) ──</span>
+<span class="hi">Scd11</span> = ( S11 + S12 − S21 − S22 ) / 2
+
+<span class="cm">── コモン→差動 クロス (Sdc11) ──</span>
+<span class="hi">Sdc11</span> = ( S11 − S12 + S21 − S22 ) / 2
+
+<span class="cm">（S** は入力ポートが +/−、出力ポートが +/− のシングルエンド Sパラメーター）</span></div>
+</div>
+
+<!-- 4. 行列構造 -->
+<div class="spec-section" id="matrix-struct">
+  <span class="section-tag">STRUCTURE</span>
+  <h2>4. Mixed-mode S 行列の構造</h2>
+
+  <h3 id="4port">4 ポート（差動ペア 1 + 差動ペア 2）</h3>
+  <p>
+    変換後の 4×4 Mixed-mode S 行列を、
+    差動 (D) / コモン (C) のブロックに分けて表示すると以下のようになります。
+    行は「出力モード」、列は「入力モード」を表します。
+  </p>
+
+  <div class="matrix-wrap">
+    <div style="display:flex; align-items:center; gap:0.5rem; font-family:var(--mono); font-size:0.8rem; flex-wrap:wrap;">
+      <span>S_mm =</span>
+      <div class="matrix" style="grid-template-columns: repeat(4, 1fr);">
+        <span class="matrix-cell hi">Sdd11</span><span class="matrix-cell hi">Sdd12</span><span class="matrix-cell warn">Sdc11</span><span class="matrix-cell warn">Sdc12</span>
+        <span class="matrix-cell hi">Sdd21</span><span class="matrix-cell hi">Sdd22</span><span class="matrix-cell warn">Sdc21</span><span class="matrix-cell warn">Sdc22</span>
+        <span class="matrix-cell warn">Scd11</span><span class="matrix-cell warn">Scd12</span><span class="matrix-cell lo">Scc11</span><span class="matrix-cell lo">Scc12</span>
+        <span class="matrix-cell warn">Scd21</span><span class="matrix-cell warn">Scd22</span><span class="matrix-cell lo">Scc21</span><span class="matrix-cell lo">Scc22</span>
+      </div>
+      <div style="font-size:0.75rem; color:var(--text-muted); line-height:1.7;">
+        ← ポート順: D1, D2, C1, C2<br>
+        （行 = 出力モード、列 = 入力モード）
+      </div>
+    </div>
+  </div>
+
+  <h3 id="block-meaning">各ブロックの意味</h3>
+  <table class="spec-table">
+    <thead>
+      <tr><th>ブロック</th><th>記号</th><th>意味</th><th>理想的な値</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Sdd (差動→差動)</td>
+        <td><code style="color:var(--accent)">Sddij</code></td>
+        <td>差動入力に対する差動出力。通常の差動回路特性</td>
+        <td>設計値どおり</td>
+      </tr>
+      <tr>
+        <td>Scc (コモン→コモン)</td>
+        <td><code style="color:#1A6B8A">Sccij</code></td>
+        <td>コモン入力に対するコモン出力。コモンモード伝達特性</td>
+        <td>差動回路では低い（減衰大）</td>
+      </tr>
+      <tr>
+        <td>Scd (差動→コモン)</td>
+        <td><code style="color:var(--warning)">Scdij</code></td>
+        <td>差動入力がコモンモードに変換される割合（Mode conversion）</td>
+        <td>0（変換なし）が理想</td>
+      </tr>
+      <tr>
+        <td>Sdc (コモン→差動)</td>
+        <td><code style="color:var(--warning)">Sdcij</code></td>
+        <td>コモン入力が差動モードに変換される割合（Mode conversion）</td>
+        <td>0（変換なし）が理想</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    <strong>CMRR（コモンモード除去比）</strong>は差動回路の重要指標です：
+  </p>
+  <div class="code-block"><span class="hi">CMRR [dB] = 20 × log10( |Sdd21| / |Scd21| )</span>
+
+<span class="cm">差動→差動の伝達に対して、コモン→差動の変換（=ノイズ混入）がどれだけ小さいかを示す。
+値が大きいほどコモンモードノイズに強い（理想は∞ dB）。</span></div>
+
+  <p>
+    <strong>ICD（Insertion loss, Common-mode to Differential）</strong>も同様の概念：
+  </p>
+  <div class="code-block"><span class="hi">ICD [dB] = 20 × log10( |Sdc21| )</span></div>
+</div>
+
+<!-- 5. 基準インピーダンス -->
+<div class="spec-section" id="impedance">
+  <span class="section-tag">IMPEDANCE</span>
+  <h2>5. 基準インピーダンスの扱い</h2>
+  <p>
+    Mixed-mode 変換は基準インピーダンスとセットで考える必要があります。
+    シングルエンドの基準インピーダンスを <em>Z₀</em>（通常 50 Ω）とすると：
+  </p>
+  <table class="spec-table">
+    <thead>
+      <tr><th>モード</th><th>基準インピーダンス</th><th>理由</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>差動モード</td>
+        <td><code>Z_diff = 2 × Z₀ = 100 Ω</code></td>
+        <td>2 本の線路が直列になるため、シングルエンドの 2 倍になる</td>
+      </tr>
+      <tr>
+        <td>コモンモード</td>
+        <td><code>Z_comm = Z₀ / 2 = 25 Ω</code></td>
+        <td>2 本の線路が並列になるため、シングルエンドの 1/2 になる</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note warn">
+    <span class="note-icon">⚠</span>
+    <span>
+      上記の関係は <strong>シングルエンドの全ポートが同じ Z₀ の場合</strong> に成立します。
+      ポートごとに異なる基準インピーダンスが設定されている場合は、
+      単純な 2 倍・1/2 の関係にはなりません。
+      Touchstone 2.0 の <code>[Reference]</code> でポートごとに異なる値が指定されている場合、
+      変換前に基準インピーダンスの正規化が必要です。
+    </span>
+  </div>
+
+  <div class="code-block"><span class="cm">Z₀ = 50 Ω の場合：</span>
+  Z_diff = 2 × 50  = <span class="hi">100 Ω</span>   （差動ポートの基準インピーダンス）
+  Z_comm = 50 / 2  =  <span class="hi">25 Ω</span>   （コモンポートの基準インピーダンス）
+
+<span class="cm">50 Ω 系で差動インピーダンス 100 Ω を持つ伝送線路は、</span>
+<span class="cm">Mixed-mode では |Sdd11| ≈ 0 となる（完全整合）。</span></div>
+
+  <h3>ポートごとに Z₀ が異なる場合の変換</h3>
+  <p>
+    ポート p の基準インピーダンスを <em>Zp</em>、ポート n の基準インピーダンスを <em>Zn</em> とする場合、
+    正規化波の変換は次のようになります（Bockelman-Eisenstadt 拡張）：
+  </p>
+  <div class="code-block"><span class="cm">a_D = √(Zn/(Zp+Zn)) × a_p − √(Zp/(Zp+Zn)) × a_n</span>
+<span class="cm">a_C = √(Zp/(Zp+Zn)) × a_p + √(Zn/(Zp+Zn)) × a_n</span>
+
+<span class="cm">Zp = Zn = Z₀ の場合は √(1/2) = 1/√2 に帰着する。</span></div>
+</div>
+
+<!-- 6. シングルエンドとの混在 -->
+<div class="spec-section" id="mixed-se">
+  <span class="section-tag">HYBRID</span>
+  <h2>6. シングルエンドポートとの混在</h2>
+  <p>
+    全ポートが差動ペアである必要はありません。
+    一部のポートがシングルエンド（不平衡）のままで、一部だけ差動ペアに変換する
+    "Mixed" 構成（Mixed-mode の名前の由来のひとつ）が可能です。
+  </p>
+  <div class="diagram">
+例: 3 ペア (6 ポート) のうち 2 ペアを差動変換、1 ポートをシングルエンドのまま残す場合
+
+  <span class="se">SE (P3)</span> ────────────────── SE
+  <span class="pos">+ (P1)</span> ─┐
+            ├── ペア 1 変換 ──── <span class="mm">D1, C1</span>
+  <span class="neg">− (P2)</span> ─┘
+  <span class="pos">+ (P4)</span> ─┐
+            ├── ペア 2 変換 ──── <span class="mm">D2, C2</span>
+  <span class="neg">− (P5)</span> ─┘
+  <span class="se">SE (P6)</span> ────────────────── SE
+
+結果: 6×6 行列
+ポート順 (Mixed-mode): SE_P3, D1, C1, D2, C2, SE_P6
+  </div>
+
+  <p>
+    シングルエンドポートに対応する変換行列 M の対角要素は <code>1</code> （変換なし）となり、
+    他の行・列要素は <code>0</code> です。
+    実装では「変換対象外ポート」として扱い、その行列行・列をそのままコピーします。
+  </p>
+</div>
+
+<!-- 7. Touchstone 2.0 における記述 -->
+<div class="spec-section" id="ts2-mixedmode">
+  <span class="section-tag">TOUCHSTONE 2.0</span>
+  <h2>7. Touchstone 2.0 における Mixed-mode の記述方法</h2>
+  <p>
+    Touchstone 2.0 (IPC-2341A) では <code>[Mixed-Mode Order]</code> キーワードで
+    どのポートが差動ペアかを宣言します。ファイルのデータは <strong>変換後の Mixed-mode 行列</strong>
+    として格納されます。
+  </p>
+
+  <h3><code>[Mixed-Mode Order]</code> の書式</h3>
+  <div class="code-block"><span class="kw">[Mixed-Mode Order]</span> <span class="val">&lt;モード1&gt; &lt;シングルエンドポート番号 or ペア定義&gt; ...</span>
+
+<span class="cm">記号の意味：</span>
+  <span class="hi">D&lt;n&gt;</span> = 差動ペア番号 n の差動ポート
+  <span class="hi">C&lt;n&gt;</span> = 差動ペア番号 n のコモンポート
+  <span class="hi">S&lt;n&gt;</span> = シングルエンドポート n（変換なし）</div>
+
+  <h3>具体例：4 ポート全差動</h3>
+  <div class="code-block"><span class="kw">[Version]</span> <span class="val">2.0</span>
+<span class="kw">[Number of Ports]</span> <span class="val">4</span>
+<span class="kw">[Mixed-Mode Order]</span> <span class="val">D1 C1 D2 C2</span>
+<span class="cm">! ポート1=D1（差動ペア1, 差動）, ポート2=C1（差動ペア1, コモン）, ...</span>
+<span class="kw">[Reference]</span>
+<span class="val">100 25 100 25</span>   <span class="cm">← Z_diff=100Ω, Z_comm=25Ω, 同上</span>
+<span class="kw">[Network Data]</span>
+<span class="cm">! freq   Sdd11        Sdc11        Sdd12        Sdc12</span>
+<span class="cm">!        Scd11        Scc11        Scd12        Scc12</span>
+<span class="cm">!        Sdd21        Sdc21        Sdd22        Sdc22</span>
+<span class="cm">!        Scd21        Scc21        Scd22        Scc22</span>
+<span class="val">1.0e9   ...</span>
+<span class="kw">[End]</span></div>
+
+  <h3>具体例：シングルエンドポート混在</h3>
+  <div class="code-block"><span class="kw">[Version]</span> <span class="val">2.0</span>
+<span class="kw">[Number of Ports]</span> <span class="val">5</span>
+<span class="kw">[Mixed-Mode Order]</span> <span class="val">S1 D1 C1 D2 C2</span>
+<span class="cm">! ポート1=シングルエンド(SE), ポート2=D1, ポート3=C1, ポート4=D2, ポート5=C2</span>
+<span class="kw">[Network Data]</span>
+<span class="cm">! 5×5 Mixed-mode S 行列</span>
+<span class="val">...</span>
+<span class="kw">[End]</span></div>
+
+  <div class="note">
+    <span class="note-icon">ℹ</span>
+    <span>
+      Touchstone 2.0 で <code>[Mixed-Mode Order]</code> が宣言されている場合、
+      <code>[Network Data]</code> に格納されているデータはすでに Mixed-mode 変換済みです。
+      シングルエンドに戻すには逆変換（S_se = M⁻¹ × S_mm × M）が必要です。
+    </span>
+  </div>
+</div>
+
+<!-- 8. 実用上の注意点 -->
+<div class="spec-section" id="practical">
+  <span class="section-tag">PRACTICE</span>
+  <h2>8. 実用上の注意点</h2>
+
+  <h3>ペア割り当てとポート番号の対応</h3>
+  <p>
+    Touchstone 1.x ファイルには Mixed-mode に関する情報は含まれていません。
+    どのポートが差動ペアを形成するかは外部から指定する必要があります。
+    本ツール（Touchstone Mixed-Mode Converter）では、ユーザーが UI 上で
+    ポートのペアを指定することで変換を行います。
+  </p>
+
+  <h3>正/負の割り当て</h3>
+  <p>
+    差動ペアでどちらが「正側」でどちらが「負側」かを間違えると、
+    Sdd の位相が 180° ずれます。
+    物理的な意味（コネクタのピン番号、基板のシンボル表記など）と一致させてください。
+  </p>
+  <div class="note warn">
+    <span class="note-icon">⚠</span>
+    <span>
+      正/負を逆に割り当てた場合、Sdd11 の位相が反転します（実部と虚部の符号が逆）。
+      絶対値（|Sdd11|）は変わらないため気づきにくいバグです。
+      特に Sdd21 の位相特性や群遅延を見るときに影響が現れます。
+    </span>
+  </div>
+
+  <h3>2 ポートファイルの特殊ケース（差動 1 ポート）</h3>
+  <p>
+    .s2p ファイルの 2 つのポートを 1 組の差動ペアと見なすと、
+    変換結果は 2×2 の Mixed-mode 行列（Sdd11, Scc11, Scd11, Sdc11）になります。
+    これは差動コンポーネント（インダクタ、コンデンサ等）の評価によく使われます。
+  </p>
+  <div class="code-block"><span class="cm">2 ポート → 差動 1 ポートの変換（Z₀=50Ω）</span>
+
+  Sdd11 = ( S11 − S12 − S21 + S22 ) / 2
+  Scc11 = ( S11 + S12 + S21 + S22 ) / 2
+  Scd11 = ( S11 + S12 − S21 − S22 ) / 2
+  Sdc11 = ( S11 − S12 + S21 − S22 ) / 2
+
+<span class="cm">S21 = S12 の場合（相反回路）：Scd11 = Sdc11</span></div>
+
+  <h3>奇数ポートへの対応</h3>
+  <p>
+    差動ペアは 2 ポートで 1 組なので、ペア数 × 2 がポート数を超えることはできません。
+    余ったポート（差動ペアに割り当てられないポート）はシングルエンドとして扱います。
+    例: 3 ポートの場合 → 最大 1 組の差動ペア + 1 シングルエンドポート。
+  </p>
+
+  <h3>注意が必要な計算上の落とし穴</h3>
+  <ul>
+    <li>
+      <strong>DB 形式の直接演算：</strong>
+      Mixed-mode 変換は複素数の線形演算です。
+      DB / MA 形式のデータを直接加減算してはいけません。必ず RI（実部・虚部）に変換してから演算し、変換後に DB / MA に戻します。
+    </li>
+    <li>
+      <strong>行列の対称性：</strong>
+      相反回路（パッシブ）なら S_se は対称行列 (Sij = Sji) ですが、
+      S_mm は一般に非対称です（Scd ≠ Sdc）。
+    </li>
+    <li>
+      <strong>浮動小数点誤差：</strong>
+      ほぼ等しい数の差を取る演算（差動モードの計算）では桁落ちが生じることがあります。
+      特に非常にバランスの取れた差動線路では Scd, Sdc が数値誤差レベルになり得ます。
+    </li>
+  </ul>
+</div>
+
+<footer style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border); font-size:0.775rem; color:var(--text-faint); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+  <span>
+    <a href="index.html" style="color:var(--accent-mid); text-decoration:none;">← Touchstone Tools トップ</a>
+    &nbsp;·&nbsp;
+    <a href="Touchstone-MixedMode.html" style="color:var(--accent-mid); text-decoration:none;">Mixed-mode Converter ツール</a>
+    &nbsp;·&nbsp;
+    <a href="Touchstone-Spec.html" style="color:var(--accent-mid); text-decoration:none;">Touchstone 仕様リファレンス</a>
+  </span>
+  <span>参考: IPC-2341A, Bockelman &amp; Eisenstadt (1995), Keysight App Note 1373</span>
+</footer>
+
+</div><!-- /.app -->
+</body>
+</html>

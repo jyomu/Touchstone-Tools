@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Touchstone 仕様リファレンス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/shared.css">
+<style>
+body { padding: 2rem 1rem; }
+.app { max-width: 860px; margin: 0 auto; }
+
+/* TOC */
+.toc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.125rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.toc-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.toc ol {
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.toc li { font-size: 0.875rem; }
+.toc a { color: var(--accent); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+.toc ol ol { margin-top: 0.25rem; }
+
+/* Section */
+.spec-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.5rem 1.75rem;
+  margin-bottom: 1.25rem;
+}
+.spec-section h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  scroll-margin-top: 1.5rem;
+}
+.section-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  margin-bottom: 0.75rem;
+}
+.spec-section h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 1.25rem 0 0.5rem;
+  padding-left: 0.625rem;
+  border-left: 2px solid var(--accent-mid);
+}
+.spec-section p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+}
+.spec-section p:last-child { margin-bottom: 0; }
+.spec-section ul, .spec-section ol {
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.spec-section ul:last-child, .spec-section ol:last-child { margin-bottom: 0; }
+
+/* Code blocks */
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text);
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  white-space: pre;
+}
+.code-block .cm  { color: var(--text-faint); }
+.code-block .kw  { color: var(--accent); font-weight: 500; }
+.code-block .val { color: #1A6B8A; }
+.code-block .hi  { color: var(--accent); font-weight: 500; }
+
+/* Inline code */
+code {
+  font-family: var(--mono);
+  font-size: 0.82em;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  color: var(--text);
+}
+
+/* Tables */
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin: 0.75rem 0;
+}
+.spec-table th {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  padding: 0.4rem 0.625rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.spec-table td {
+  padding: 0.45rem 0.625rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.spec-table td:first-child { font-family: var(--mono); font-size: 0.775rem; color: var(--text); }
+.spec-table tr:last-child td { border-bottom: none; }
+
+/* Note / warning boxes */
+.note {
+  display: flex;
+  gap: 0.625rem;
+  background: var(--accent-bg);
+  border: 1px solid #A8D9C8;
+  border-radius: var(--radius);
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  margin: 0.75rem 0;
+  line-height: 1.55;
+}
+.note-icon { flex-shrink: 0; margin-top: 0.05rem; }
+.warn {
+  background: var(--warning-bg);
+  border-color: #D4A055;
+  color: var(--warning);
+}
+.caution {
+  background: var(--error-bg);
+  border-color: #E0A898;
+  color: var(--error);
+}
+
+/* Compatibility matrix */
+.compat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+@media (max-width: 540px) { .compat-grid { grid-template-columns: 1fr; } }
+.compat-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+}
+.compat-card-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  font-family: var(--mono);
+}
+.compat-card ul {
+  margin: 0;
+  padding-left: 1rem;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+}
+.badge-ok   { color: var(--accent); font-weight: 600; }
+.badge-warn { color: var(--warning); font-weight: 600; }
+.badge-no   { color: var(--error);   font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<header>
+  <a class="logo" href="index.html">Touchstone<span>Tools</span></a>
+  <span class="subtitle">仕様リファレンス</span>
+</header>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">目次</div>
+  <ol>
+    <li><a href="#ts1">Touchstone 1.x 規格</a>
+      <ol>
+        <li><a href="#ts1-option">オプション行 (#)</a></li>
+        <li><a href="#ts1-comment">コメント行 (!)</a></li>
+        <li><a href="#ts1-data">データ行の順序</a></li>
+        <li><a href="#ts1-defaults">省略時のデフォルト</a></li>
+      </ol>
+    </li>
+    <li><a href="#ts2">Touchstone 2.0 規格</a>
+      <ol>
+        <li><a href="#ts2-keywords">ブラケットキーワード一覧</a></li>
+        <li><a href="#ts2-data">データセクション</a></li>
+        <li><a href="#ts2-twoport">2 ポートの互換モード</a></li>
+      </ol>
+    </li>
+    <li><a href="#keysight">Keysight 独自 ! ヘッダー</a>
+      <ol>
+        <li><a href="#keysight-list">キーワード一覧</a></li>
+        <li><a href="#keysight-example">出力例</a></li>
+      </ol>
+    </li>
+    <li><a href="#compat">バージョン × Keysight ヘッダーの組み合わせ</a></li>
+    <li><a href="#impl">実装上の注意点</a></li>
+  </ol>
+</div>
+
+<!-- 1. Touchstone 1.x -->
+<div class="spec-section" id="ts1">
+  <span class="section-tag">SPEC</span>
+  <h2>1. Touchstone 1.x 規格</h2>
+  <p>
+    Touchstone 1.x（バージョン 1.0 / 1.1）はネットワークアナライザーベンダーが 1980 年代に策定した
+    事実上の標準フォーマットです。IPC-2341 として後に標準化されましたが、
+    バージョン 1.x はその前身にあたる非公式仕様です。
+    拡張子は <code>.s1p</code>〜<code>.sNp</code> (<em>N</em> はポート数)。
+  </p>
+
+  <h3 id="ts1-option">オプション行 (<code>#</code>)</h3>
+  <p>
+    ファイルに必ず 1 行だけ存在する設定行。<code>#</code> で始まり、大文字小文字を区別しません。
+    各トークンはスペース／タブ区切りで、順序は任意です。
+  </p>
+  <div class="code-block"><span class="cm"># &lt;周波数単位&gt; &lt;パラメーター種別&gt; &lt;データ形式&gt; R &lt;基準インピーダンス&gt;</span>
+<span class="kw">#</span> <span class="val">GHz  S  RI  R  50</span>   <span class="cm">← 最も一般的な組み合わせ</span>
+<span class="kw">#</span> <span class="val">MHz  S  MA  R  50</span>
+<span class="kw">#</span> <span class="val">Hz   Y  DB  R  75</span></div>
+
+  <table class="spec-table">
+    <thead>
+      <tr><th>トークン</th><th>選択肢</th><th>説明</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>周波数単位</td>
+        <td><code>Hz</code> <code>kHz</code> <code>MHz</code> <code>GHz</code></td>
+        <td>省略時は <code>GHz</code>。大文字小文字不問</td>
+      </tr>
+      <tr>
+        <td>パラメーター種別</td>
+        <td><code>S</code> <code>Y</code> <code>Z</code> <code>H</code> <code>G</code></td>
+        <td>Sパラメーター / アドミタンス / インピーダンス / Hパラメーター / Gパラメーター</td>
+      </tr>
+      <tr>
+        <td>データ形式</td>
+        <td><code>RI</code> <code>MA</code> <code>DB</code></td>
+        <td>実部・虚部 / 絶対値・位相[deg] / dB値・位相[deg]</td>
+      </tr>
+      <tr>
+        <td><code>R</code> &lt;値&gt;</td>
+        <td>任意の正実数</td>
+        <td>基準インピーダンス [Ω]。省略時は <code>R 50</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 id="ts1-comment">コメント行 (<code>!</code>)</h3>
+  <p>
+    <code>!</code> 以降の文字（行末まで）はコメントとして無視されます。
+    行の途中に置くことも可能（インラインコメント）。
+  </p>
+  <div class="code-block"><span class="cm">! これはコメント行です</span>
+<span class="kw">#</span> <span class="val">GHz S RI R 50</span>   <span class="cm">! オプション行のインラインコメントも有効</span>
+<span class="val">1.0  0.99  0.01  0.02  0.03  0.02  0.03  0.98  0.01</span>   <span class="cm">! データ行コメント</span></div>
+
+  <h3 id="ts1-data">データ行の順序</h3>
+  <p>
+    データは周波数昇順で並べます。改行・空白は自由で、複数行にまたがっても構いません。
+    ただしポート数によってデータの並び順が異なる点が注意事項です（歴史的経緯）。
+  </p>
+
+  <p><strong>1 ポート (.s1p)</strong></p>
+  <div class="code-block"><span class="cm">! freq  S11(re)  S11(im)</span>
+<span class="val">1.0e9  0.9  0.1</span></div>
+
+  <p><strong>2 ポート (.s2p) — 列優先 (Column-major)</strong></p>
+  <p>
+    2 ポートだけは <strong>列優先</strong>（S11, S21, S12, S22 の順）で格納されます。
+    行列で表すと「第 1 列を先に書き、次に第 2 列」という順序です。
+  </p>
+  <div class="code-block"><span class="cm">! freq   S11           S21           S12           S22</span>
+<span class="val">1.0e9   0.9  0.1    0.1  0.05    0.1  0.05    0.8  0.2</span>
+
+<span class="cm">! 行列で表現すると：</span>
+<span class="cm">!   [ S11  S12 ]   →   格納順: S11, S21, S12, S22  (列優先)</span>
+<span class="cm">!   [ S21  S22 ]</span></div>
+
+  <div class="note warn">
+    <span class="note-icon">⚠</span>
+    <span>2 ポートだけが列優先です。3 ポート以上は行優先になります。この非対称な仕様は歴史的な設計ミスとして知られており、Touchstone 2.0 で修正されました。</span>
+  </div>
+
+  <p><strong>3 ポート以上 (.s3p〜) — 行優先 (Row-major)</strong></p>
+  <p>
+    N≥3 のファイルでは 1 周波数点ごとに N 行で記述するのが慣例です
+    （ただし改行は任意なので実装はデータ数で判断します）。
+  </p>
+  <div class="code-block"><span class="cm">! 3-port の例</span>
+<span class="cm">! freq   S11          S12          S13</span>
+<span class="cm">!        S21          S22          S23</span>
+<span class="cm">!        S31          S32          S33</span>
+<span class="val">1.0e9
+0.8  0.1   0.05 0.02  0.04 0.01
+0.05 0.02  0.7  0.1   0.03 0.01
+0.04 0.01  0.03 0.01  0.75 0.08</span></div>
+
+  <h3 id="ts1-defaults">省略時のデフォルト</h3>
+  <table class="spec-table">
+    <thead>
+      <tr><th>項目</th><th>デフォルト値</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>周波数単位</td><td><code>GHz</code></td></tr>
+      <tr><td>パラメーター種別</td><td><code>S</code></td></tr>
+      <tr><td>データ形式</td><td><code>MA</code></td></tr>
+      <tr><td>基準インピーダンス</td><td><code>50 Ω</code></td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <span class="note-icon">ℹ</span>
+    <span>オプション行が存在しない場合は上記デフォルトで解釈する実装が多いですが、
+    厳密には仕様違反です。実用上は <code># GHz S RI R 50</code> を明示することを推奨します。</span>
+  </div>
+</div>
+
+<!-- 2. Touchstone 2.0 -->
+<div class="spec-section" id="ts2">
+  <span class="section-tag">SPEC</span>
+  <h2>2. Touchstone 2.0 規格</h2>
+  <p>
+    Touchstone 2.0 は IPC-2341A（2008年）として正式標準化されたフォーマットです。
+    ブラケット <code>[keyword]</code> 形式のメタデータ、ポートごとの基準インピーダンス、
+    Mixed-mode 記述などが追加されています。拡張子は 1.x と同じ <code>.sNp</code> ですが、
+    ファイル先頭の <code>[Version] 2.0</code> で識別します。
+  </p>
+
+  <h3 id="ts2-keywords">ブラケットキーワード一覧</h3>
+  <table class="spec-table">
+    <thead>
+      <tr><th>キーワード</th><th>必須</th><th>説明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>[Version] 2.0</td><td>必須</td><td>バージョン識別子。ファイル最初のキーワードであること</td></tr>
+      <tr><td>[Number of Ports] N</td><td>必須</td><td>ポート数</td></tr>
+      <tr><td>[Options]</td><td>任意</td><td>1.x と同じ書式のオプション行をここに記述</td></tr>
+      <tr><td>[Number of Frequencies] N</td><td>任意</td><td>周波数点数（事前宣言）</td></tr>
+      <tr><td>[Number of Noise Frequencies] N</td><td>任意</td><td>ノイズデータ周波数点数</td></tr>
+      <tr><td>[Reference]</td><td>任意</td><td>ポートごとの基準インピーダンス（スペース区切りで N 個）</td></tr>
+      <tr><td>[Matrix Format] Full|Lower|Upper</td><td>任意</td><td>行列の格納形式（省略時は Full）</td></tr>
+      <tr><td>[Mixed-Mode Order]</td><td>任意</td><td>Mixed-mode ポートの定義（後述）</td></tr>
+      <tr><td>[Two-Port Order] 12_21|21_12</td><td>任意</td><td>2 ポートの並び順（後述）</td></tr>
+      <tr><td>[Begin Information] / [End Information]</td><td>任意</td><td>任意のテキストメタデータブロック</td></tr>
+      <tr><td>[Network Data]</td><td>必須</td><td>ネットワークデータ開始マーカー</td></tr>
+      <tr><td>[Noise Data]</td><td>任意</td><td>ノイズデータ開始マーカー</td></tr>
+      <tr><td>[End]</td><td>必須</td><td>ファイル終端マーカー</td></tr>
+    </tbody>
+  </table>
+
+  <h3 id="ts2-data">データセクション</h3>
+  <p>
+    <code>[Network Data]</code> 以降に、周波数ごとのデータを行列行優先で記述します。
+    2 ポートを含むすべてのポート数で <strong>行優先</strong> です（1.x の列優先例外なし）。
+  </p>
+  <div class="code-block"><span class="kw">[Version]</span> <span class="val">2.0</span>
+<span class="kw">[Number of Ports]</span> <span class="val">2</span>
+<span class="kw">[Reference]</span>
+<span class="val">50  50</span>
+<span class="kw">[Network Data]</span>
+<span class="cm">! freq   S11           S12           S21           S22</span>
+<span class="val">1.0e9   0.9  0.1    0.1  0.05    0.1  0.05    0.8  0.2</span>
+<span class="kw">[End]</span></div>
+
+  <h3 id="ts2-twoport">2 ポートの互換モード (<code>[Two-Port Order]</code>)</h3>
+  <p>
+    デフォルトは行優先 (<code>12_21</code>: S11, S12, S21, S22) ですが、
+    <code>[Two-Port Order] 21_12</code> を指定すると
+    Touchstone 1.x 互換の列優先 (S11, S21, S12, S22) として解釈されます。
+  </p>
+  <div class="code-block"><span class="kw">[Two-Port Order]</span> <span class="val">21_12</span>   <span class="cm">← 1.x 互換モード（列優先）</span>
+<span class="kw">[Two-Port Order]</span> <span class="val">12_21</span>   <span class="cm">← 2.0 デフォルト（行優先）</span></div>
+
+  <div class="note">
+    <span class="note-icon">ℹ</span>
+    <span><code>[Two-Port Order]</code> キーワードが存在する場合は 2.0 ファイルです。
+    存在しない場合のデフォルトは <code>12_21</code>（行優先）です。</span>
+  </div>
+</div>
+
+<!-- 3. Keysight ! ヘッダー -->
+<div class="spec-section" id="keysight">
+  <span class="section-tag">VENDOR</span>
+  <h2>3. Keysight 独自 <code>!</code> ヘッダー</h2>
+  <p>
+    Keysight（旧 Agilent / HP）のネットワークアナライザー（ENA シリーズ、PNA シリーズ等）は
+    Touchstone 1.x ファイルに独自の <code>!</code> コメント行を挿入します。
+    これらは仕様上は単なるコメントですが、多くのソフトウェアがこれを解釈して
+    ポートインピーダンスや計測条件を取得します。
+  </p>
+
+  <h3 id="keysight-list">キーワード一覧</h3>
+  <table class="spec-table">
+    <thead>
+      <tr><th>キーワード行</th><th>内容</th><th>例</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>! Keysight Technologies,&lt;モデル&gt;,&lt;シリアル&gt;,&lt;ファーム&gt;</td>
+        <td>機器識別（メーカー・型番・S/N・FW）</td>
+        <td><code>! Keysight Technologies,E5063A,MY12345678,A.15.31</code></td>
+      </tr>
+      <tr>
+        <td>! Agilent Technologies,&lt;モデル&gt;,...（旧称）</td>
+        <td>旧 Agilent 時代の機器識別</td>
+        <td><code>! Agilent Technologies,E5071C,MY09876543,A.09.80</code></td>
+      </tr>
+      <tr>
+        <td>! Date: &lt;日時&gt;</td>
+        <td>計測日時</td>
+        <td><code>! Date: Wednesday, May 06, 2026 09:36:11</code></td>
+      </tr>
+      <tr>
+        <td>! Touchstone version: &lt;バージョン&gt;</td>
+        <td>出力した Touchstone バージョン</td>
+        <td><code>! Touchstone version: 1.1</code></td>
+      </tr>
+      <tr>
+        <td>! Port Z0: &lt;r1&gt; &lt;r2&gt; ...</td>
+        <td>ポートごとの基準インピーダンス [Ω]</td>
+        <td><code>! Port Z0: 50.000 50.000</code></td>
+      </tr>
+      <tr>
+        <td>! Port Impedance: &lt;r1&gt; ...</td>
+        <td>同上（別表記）</td>
+        <td><code>! Port Impedance: 50.000 50.000</code></td>
+      </tr>
+      <tr>
+        <td>! Port Name: &lt;名前 1&gt; &lt;名前 2&gt; ...</td>
+        <td>ポートのラベル名</td>
+        <td><code>! Port Name: Port1 Port2</code></td>
+      </tr>
+      <tr>
+        <td>! Reference: &lt;条件&gt;</td>
+        <td>キャリブレーション参照情報</td>
+        <td><code>! Reference: Full 2-Port</code></td>
+      </tr>
+      <tr>
+        <td>! Start: / ! Stop: / ! Step:</td>
+        <td>計測周波数レンジ設定</td>
+        <td><code>! Start: 300000 Hz</code></td>
+      </tr>
+      <tr>
+        <td>! Points: &lt;数&gt;</td>
+        <td>周波数点数</td>
+        <td><code>! Points: 1601</code></td>
+      </tr>
+      <tr>
+        <td>! Power: &lt;値&gt; &lt;単位&gt;</td>
+        <td>入力電力レベル</td>
+        <td><code>! Power: -10 dBm</code></td>
+      </tr>
+      <tr>
+        <td>! IFBW: &lt;値&gt; &lt;単位&gt;</td>
+        <td>IF バンド幅</td>
+        <td><code>! IFBW: 1000 Hz</code></td>
+      </tr>
+      <tr>
+        <td>! Averaging: &lt;オン/オフ&gt; [Factor: &lt;数&gt;]</td>
+        <td>アベレージング設定</td>
+        <td><code>! Averaging: ON Factor: 16</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 id="keysight-example">出力例（ENA E5063A 2 ポート）</h3>
+  <div class="code-block"><span class="cm">! Keysight Technologies,E5063A,MY12345678,A.15.31
+! Date: Wednesday, May 06, 2026 09:36:11
+! Touchstone version: 1.1
+! Start: 300000 Hz
+! Stop:  2000000000 Hz
+! Points: 1601
+! Power: -10 dBm
+! IFBW: 1000 Hz
+! Averaging: OFF
+! Port Z0: 50.000 50.000</span>
+<span class="kw">#</span> <span class="val">Hz  S  RI  R  50</span>
+<span class="val">300000   9.9898e-01  6.2383e-03   4.0625e-07  4.3651e-07 ...</span>
+<span class="val">...</span></div>
+
+  <div class="note">
+    <span class="note-icon">ℹ</span>
+    <span>
+      <code>! Port Z0:</code> ヘッダーと <code># ... R 50</code> の値が異なる場合があります。
+      これはキャリブレーション状態や計測条件によるものです。
+      どちらを実際の基準インピーダンスとして使うかは利用するソフトウェアの判断に依存します。
+    </span>
+  </div>
+</div>
+
+<!-- 4. 組み合わせ -->
+<div class="spec-section" id="compat">
+  <span class="section-tag">COMPAT</span>
+  <h2>4. バージョン × Keysight ヘッダーの組み合わせと挙動</h2>
+  <p>
+    実際のファイルは「Touchstone のバージョン」と「Keysight ヘッダーの有無・内容」の組み合わせで
+    多様なケースが存在します。以下に主要なパターンをまとめます。
+  </p>
+
+  <div class="compat-grid">
+    <div class="compat-card">
+      <div class="compat-card-title">Touchstone 1.x + Keysight ヘッダーあり</div>
+      <ul>
+        <li><span class="badge-ok">◎ 最多</span> Keysight 製品の標準出力</li>
+        <li><code>!</code> コメントは仕様上無視してよい</li>
+        <li><code>! Port Z0:</code> に非 50 Ω 値があれば考慮が必要</li>
+        <li>ポート名・計測条件をメタデータとして活用可能</li>
+      </ul>
+    </div>
+    <div class="compat-card">
+      <div class="compat-card-title">Touchstone 1.x + コメントなし</div>
+      <ul>
+        <li><span class="badge-ok">◎ 汎用</span> シミュレーターなどの出力</li>
+        <li>オプション行だけを解釈すればよい</li>
+        <li>基準インピーダンスは <code>R</code> 値のみ参照</li>
+      </ul>
+    </div>
+    <div class="compat-card">
+      <div class="compat-card-title">Touchstone 2.0 + Keysight ヘッダーあり</div>
+      <ul>
+        <li><span class="badge-warn">△ 少数</span> 新しい Keysight 機器が出力</li>
+        <li><code>[Begin Information]...[End Information]</code> にも同等情報が入ることがある</li>
+        <li><code>!</code> コメントは互換情報として残る場合がある</li>
+        <li>ポートインピーダンスは <code>[Reference]</code> を優先する</li>
+      </ul>
+    </div>
+    <div class="compat-card">
+      <div class="compat-card-title">Touchstone 2.0 + コメントなし</div>
+      <ul>
+        <li><span class="badge-ok">◎ 標準</span> シミュレーター・EDA ツールの出力</li>
+        <li><code>[Reference]</code> でポートごとのインピーダンスを指定</li>
+        <li><code>[Mixed-Mode Order]</code> で Mixed-mode が明示される</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>基準インピーダンスの優先順位</h3>
+  <p>同一ファイルに複数の基準インピーダンス情報がある場合の推奨優先順位：</p>
+  <ol>
+    <li><strong>Touchstone 2.0 <code>[Reference]</code> キーワード</strong> — 明示的なポートごとの値、最優先</li>
+    <li><strong>Keysight <code>! Port Z0:</code> / <code>! Port Impedance:</code></strong> — ベンダー拡張、ポートごとに指定可能</li>
+    <li><strong>オプション行 <code>R &lt;値&gt;</code></strong> — 全ポート共通のフォールバック</li>
+    <li><strong>デフォルト 50 Ω</strong> — 何も指定がない場合</li>
+  </ol>
+
+  <h3>2 ポートデータ並び順の判定フロー</h3>
+  <div class="code-block"><span class="cm">ファイル読み込み時</span>
+  ↓ <span class="kw">[Version] 2.0</span> が存在する？
+  ├─ Yes → Touchstone 2.0
+  │         ↓ <span class="kw">[Two-Port Order]</span> が存在する？
+  │         ├─ <span class="val">21_12</span>  → 列優先 (1.x 互換) で解析
+  │         ├─ <span class="val">12_21</span>  → 行優先 (2.0 標準) で解析
+  │         └─ なし    → 行優先 (2.0 標準) で解析
+  └─ No  → Touchstone 1.x
+             ↓ ポート数は？
+             ├─ 2 ポート → 列優先 (S11, S21, S12, S22) で解析
+             └─ その他   → 行優先 (S11, S12, ..., SNN) で解析</div>
+
+  <h3>Keysight ヘッダーと <code>[Begin Information]</code> の対応</h3>
+  <table class="spec-table">
+    <thead>
+      <tr><th>Keysight <code>!</code> ヘッダー (1.x)</th><th>Touchstone 2.0 対応項目</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>! Keysight Technologies,&lt;モデル&gt;,&lt;S/N&gt;,&lt;FW&gt;</td><td>[Begin Information] 内の自由記述または [Network Data] 前コメント</td></tr>
+      <tr><td>! Date: ...</td><td>[Begin Information] 内テキスト</td></tr>
+      <tr><td>! Port Z0: r1 r2 ...</td><td>[Reference] r1 r2 ...</td></tr>
+      <tr><td>! Port Name: n1 n2 ...</td><td>[Begin Information] 内テキスト（標準外）</td></tr>
+      <tr><td>! Points: N</td><td>[Number of Frequencies] N</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 5. 実装上の注意点 -->
+<div class="spec-section" id="impl">
+  <span class="section-tag">NOTE</span>
+  <h2>5. 実装上の注意点</h2>
+
+  <h3>パーサー実装時のチェックリスト</h3>
+  <ul>
+    <li>大文字小文字を区別せずトークンを解釈する（オプション行、ブラケットキーワード）</li>
+    <li>データ行のインラインコメント（<code>!</code> 以降）を除去してから数値解析する</li>
+    <li>複数行にまたがるデータを連結してから周波数ごとに分割する（改行は無意味）</li>
+    <li>2 ポートファイルでバージョンを確認してから列優先 / 行優先を決定する</li>
+    <li><code>! Port Z0:</code> を見つけた場合は <code>R</code> 値より優先するかどうかをユーザーに委ねる、または最優先で扱う</li>
+    <li>Touchstone 2.0 の <code>[Matrix Format] Lower</code> / <code>Upper</code> は実装が必要（下三角 / 上三角のみ格納）</li>
+    <li><code>! Keysight Technologies,</code> と <code>! Agilent Technologies,</code> の両方を考慮する</li>
+  </ul>
+
+  <h3>よくある罠</h3>
+  <div class="note caution">
+    <span class="note-icon">✕</span>
+    <span>
+      <strong>2 ポートの列優先を忘れる：</strong>
+      多くのパーサーが「S11, S12, S21, S22」（行優先）と誤実装しています。
+      Touchstone 1.x の 2 ポートは「S11, S21, S12, S22」（列優先）が正しい解釈です。
+    </span>
+  </div>
+  <div class="note caution">
+    <span class="note-icon">✕</span>
+    <span>
+      <strong>DB 形式の 0 マグニチュード：</strong>
+      <code>-999.999 dB</code> や <code>-inf dB</code> はゼロを意味する慣例値です。
+      変換時に <code>0 V</code> として扱わないと誤差が生じます。
+    </span>
+  </div>
+  <div class="note warn">
+    <span class="note-icon">⚠</span>
+    <span>
+      <strong>オプション行が複数存在するファイル：</strong>
+      仕様では 1 行のみとされていますが、一部ツールが複数出力する場合があります。
+      最初に見つかった行を採用するのが一般的な実装です。
+    </span>
+  </div>
+</div>
+
+<footer style="margin-top:2rem; padding-top:1.25rem; border-top:1px solid var(--border); font-size:0.775rem; color:var(--text-faint); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+  <span><a href="index.html" style="color:var(--accent-mid); text-decoration:none;">← Touchstone Tools トップ</a></span>
+  <span>参考: IPC-2341A (Touchstone 2.0 spec), Keysight ENA/PNA Programmer's Guide</span>
+</footer>
+
+</div><!-- /.app -->
+</body>
+</html>
