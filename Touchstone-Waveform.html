@@ -377,13 +377,6 @@ header {
 .step-badge.moving-max { background: #7A5EA7; }
 .step-badge.moving-avg { background: #1D9E75; }
 
-.step-type-label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  flex: 1;
-  white-space: nowrap;
-}
-
 .step-window {
   font-family: var(--mono);
   font-size: 0.7rem;
@@ -394,6 +387,13 @@ header {
   padding: 2px 4px;
   width: 46px;
   text-align: right;
+  flex-shrink: 0;
+}
+
+.step-pt {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  flex-shrink: 0;
 }
 
 .step-num {
@@ -777,8 +777,8 @@ function applyMoving(arr, w, causal, accumulate) {
   return out;
 }
 
-function movingMax(arr, w) {
-  return applyMoving(arr, w, false, (a, lo, hi) => {
+function movingMax(arr, w, causal) {
+  return applyMoving(arr, w, causal, (a, lo, hi) => {
     let mx = -Infinity;
     for (let k = lo; k <= hi; k++) if (a[k] > mx) mx = a[k];
     return mx;
@@ -796,7 +796,7 @@ function movingAvg(arr, w, causal) {
 function applyPipeline(arr) {
   let result = arr;
   for (const step of analysisSteps) {
-    if (step.type === 'movingMax') result = movingMax(result, step.window);
+    if (step.type === 'movingMax') result = movingMax(result, step.window, step.causal);
     else if (step.type === 'movingAvg') result = movingAvg(result, step.window, step.causal);
   }
   return result;
@@ -1177,8 +1177,8 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
   if (traces.length && c === canvas) {
     const pipeLabel = analysisSteps.length > 0
       ? ' [' + analysisSteps.map(s => {
-          if (s.type === 'movingMax') return `MMax(${s.window})`;
-          return `MAvg(${s.window},${s.causal ? '因果' : '中心'})`;
+          const mode = s.causal ? '因果' : '中心';
+          return s.type === 'movingMax' ? `MMax(${s.window},${mode})` : `MAvg(${s.window},${mode})`;
         }).join('→') + ']'
       : '';
     const items = traces.map(t => ({
@@ -1665,17 +1665,13 @@ function renderPipelinePanel() {
     row.className      = 'pipeline-step';
     row.draggable      = true;
     row.dataset.stepId = step.id;
-    const modeToggle = step.type === 'movingAvg'
-      ? `<button class="step-mode-btn${step.causal ? ' causal' : ''}" title="因果: 現在点以前のみ / 中心: 前後対称">${step.causal ? '因果' : '中心'}</button>`
-      : '';
     row.innerHTML = `
       <span class="step-drag-handle" title="ドラッグして並び替え">⠿</span>
       <span class="step-num">${idx + 1}.</span>
-      <span class="step-badge ${STEP_BADGE_CLASS[step.type]}">${STEP_ABBR[step.type]}</span>
-      <span class="step-type-label">${STEP_LABELS[step.type]}</span>
-      ${modeToggle}
+      <span class="step-badge ${STEP_BADGE_CLASS[step.type]}" title="${STEP_LABELS[step.type]}">${STEP_ABBR[step.type]}</span>
+      <button class="step-mode-btn${step.causal ? ' causal' : ''}" title="因果: 現在点以前のみ / 中心: 前後対称">${step.causal ? '因果' : '中心'}</button>
       <input class="step-window" type="number" value="${step.window}" min="1" max="9999" title="ウィンドウ幅 (点数)">
-      <span style="font-size:0.65rem;color:var(--text-faint)">pt</span>
+      <span class="step-pt">pt</span>
       <button class="icon-btn remove step-remove" title="削除">✕</button>
     `;
     container.appendChild(row);
@@ -1743,7 +1739,7 @@ pipelineContainer.addEventListener('drop', e => {
 });
 
 document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
-  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: 100 });
+  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: 100, causal: false });
   renderPipelinePanel();
   redraw();
 });
