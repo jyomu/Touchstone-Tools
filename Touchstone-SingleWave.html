@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Touchstone Single Wave Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lib/shared.css">
+<style>
+body { padding: 1.25rem 1rem 2rem; }
+
+.app { max-width: 1300px; margin: 0 auto; }
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.logo span { color: var(--accent-mid); }
+
+.back-link {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--mono);
+}
+.back-link:hover { text-decoration: underline; }
+
+/* Layout */
+.workspace {
+  display: grid;
+  grid-template-columns: 252px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .workspace { grid-template-columns: 1fr; }
+  .sidebar { order: 2; }
+  .chart-area { order: 1; }
+}
+
+/* Sidebar */
+.sidebar { display: flex; flex-direction: column; gap: 0.625rem; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.875rem;
+}
+
+.panel-title {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 0.625rem;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border-mid);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.drop-label { font-size: 0.8rem; color: var(--text-muted); }
+.drop-sub { font-size: 0.7rem; color: var(--text-faint); margin-top: 0.2rem; font-family: var(--mono); }
+
+/* Current file display */
+.current-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+}
+.current-file-name {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.current-file-name.empty { color: var(--text-faint); font-style: italic; }
+
+/* S-param grid */
+.sparm-grid {
+  display: grid;
+  gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.sp-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sp-item input { cursor: pointer; margin: 0; width: 12px; height: 12px; flex-shrink: 0; }
+.sp-item label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.sp-item input:checked + label { color: var(--text); font-weight: 500; }
+
+.sparm-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+/* Button groups */
+.btn-row { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.seg-btn {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.seg-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+.seg-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* BW panel */
+.bw-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.bw-label { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
+.bw-select {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 4px;
+  flex: 1;
+  min-width: 0;
+}
+.bw-input {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 4px;
+  width: 52px;
+}
+.bw-result {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.6;
+}
+.bw-result .bw-val { color: var(--text); font-weight: 500; }
+.bw-result .bw-err { color: var(--error); }
+
+/* Export */
+.export-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Chart area */
+.chart-area { display: flex; flex-direction: column; gap: 0.625rem; }
+
+.canvas-wrap {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+  position: relative;
+}
+#mainCanvas {
+  display: block;
+  width: 100%;
+  height: 360px;
+  cursor: crosshair;
+}
+#mainCanvas.panning { cursor: grab; }
+#mainCanvas.grabbing { cursor: grabbing; }
+
+.status-bar {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 0.3rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 1.8rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Marker panel */
+.marker-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  align-items: start;
+}
+.mk-label { color: var(--text-faint); white-space: nowrap; }
+.mk-val { color: var(--text); line-height: 1.5; }
+.mk-val .mk-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.mk-row span { white-space: nowrap; }
+.mk-delta { color: var(--accent); }
+.mk-slot-btn {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.mk-slot-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mk-controls { display: flex; gap: 4px; margin-bottom: 6px; align-items: center; }
+.mk-hint { font-size: 0.7rem; color: var(--text-faint); margin-left: auto; }
+
+/* Stats panel */
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+.stats-table th {
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  padding: 0 4px 4px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.stats-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.stats-table tr:last-child td { border-bottom: none; }
+.stats-table .c-swatch {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* Generic buttons */
+.btn {
+  font-family: var(--sans);
+  font-size: 0.775rem;
+  font-weight: 500;
+  padding: 0.35rem 0.875rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.12s;
+}
+.btn-sm { font-size: 0.7rem; padding: 0.2rem 0.55rem; }
+.btn:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* icon-btn */
+.icon-btn {
+  font-size: 0.75rem;
+  padding: 2px 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: all 0.12s;
+}
+.icon-btn:hover { background: var(--bg); color: var(--text); border-color: var(--border); }
+.icon-btn.remove:hover { background: var(--error-bg); color: var(--error); }
+
+.empty-msg { font-size: 0.75rem; color: var(--text-faint); text-align: center; padding: 0.5rem 0; }
+
+/* Analysis pipeline */
+.pipeline-steps { display: flex; flex-direction: column; gap: 4px; }
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: default;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.pipeline-step.dragging  { opacity: 0.4; }
+.pipeline-step.drag-over { border-color: var(--accent); background: var(--surface); }
+
+.step-drag-handle {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  cursor: grab;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0 1px;
+  user-select: none;
+}
+.step-drag-handle:active { cursor: grabbing; }
+
+.step-badge {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.step-badge.moving-max { background: #7A5EA7; }
+.step-badge.moving-avg { background: #1D9E75; }
+
+.step-window {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 4px;
+  width: 46px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.step-pt {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.step-num {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  min-width: 14px;
+  text-align: right;
+}
+
+.step-mode-btn {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.step-mode-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+.step-mode-btn.causal { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.pipeline-add-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.pipeline-empty {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 6px 0 2px;
+}
+
+/* Error banner */
+.err-banner {
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid #e8c4b8;
+  border-radius: var(--radius);
+  padding: 0.4rem 0.75rem;
+  margin-top: -2px;
+  display: none;
+}
+.err-banner.show { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">Touchstone<span>·</span>SingleWave</div>
+  <div class="subtitle">単一ファイルのSパラメータ解析ツール（DB / MA · 分析パイプライン対応）</div>
+  <a class="back-link" href="index.html">← Tools</a>
+</header>
+
+<div class="workspace">
+
+<!-- ─── SIDEBAR ─────────────────────────────────────────────── -->
+<aside class="sidebar">
+
+  <!-- Drop zone -->
+  <div class="panel">
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput"
+        accept=".s1p,.s2p,.s3p,.s4p,.s5p,.s6p,.s7p,.s8p,.s9p">
+      <div class="drop-label"><strong>クリックまたはドロップ</strong></div>
+      <div class="drop-sub">.s1p〜.s9p（1ファイル）</div>
+    </div>
+    <div class="current-file" id="currentFileRow" style="margin-top:6px">
+      <span class="current-file-name empty" id="currentFileName">ファイル未読込</span>
+    </div>
+  </div>
+
+  <!-- S-param selection -->
+  <div class="panel" id="sparmPanel">
+    <div class="panel-title">Sパラメータ</div>
+    <div class="sparm-grid" id="sparmGrid">
+      <div class="empty-msg">ファイルを読み込んでください</div>
+    </div>
+    <div class="sparm-actions" id="sparmActions" style="display:none">
+      <button class="btn btn-secondary btn-sm" id="sparmAllBtn">全選択</button>
+      <button class="btn btn-secondary btn-sm" id="sparmNoneBtn">全解除</button>
+    </div>
+  </div>
+
+  <!-- Display options -->
+  <div class="panel">
+    <div class="panel-title">表示フォーマット</div>
+    <div class="btn-row" id="fmtBtns">
+      <button class="seg-btn active" data-fmt="DB">DB</button>
+      <button class="seg-btn" data-fmt="MA">MA</button>
+    </div>
+    <div class="panel-title" style="margin-top:0.625rem">スケール</div>
+    <div class="btn-row" id="scaleBtns">
+      <button class="seg-btn active" data-scale="linear">線形</button>
+      <button class="seg-btn" data-scale="log">対数</button>
+    </div>
+  </div>
+
+  <!-- Analysis pipeline -->
+  <div class="panel" id="analysisPanel">
+    <div class="panel-title">分析パイプライン</div>
+    <div class="pipeline-steps" id="pipelineSteps">
+      <div class="pipeline-empty" id="pipelineEmpty">ステップなし（元データをそのまま表示）</div>
+    </div>
+    <div class="pipeline-add-row">
+      <button class="seg-btn" id="addMovingMaxBtn">＋ 移動最大値</button>
+      <button class="seg-btn" id="addMovingAvgBtn">＋ 移動平均</button>
+    </div>
+  </div>
+
+  <!-- Frequency range -->
+  <div class="panel">
+    <div class="panel-title">周波数範囲</div>
+    <div class="bw-row">
+      <span class="bw-label">Start</span>
+      <input class="bw-input" type="number" id="freqStartVal" min="0" step="any" style="width:64px">
+      <select class="bw-select" id="freqStartUnit" style="width:50px;flex:none">
+        <option value="Hz">Hz</option>
+        <option value="kHz">kHz</option>
+        <option value="MHz">MHz</option>
+        <option value="GHz">GHz</option>
+      </select>
+    </div>
+    <div class="bw-row">
+      <span class="bw-label">Stop&nbsp;</span>
+      <input class="bw-input" type="number" id="freqStopVal" min="0" step="any" style="width:64px">
+      <select class="bw-select" id="freqStopUnit" style="width:50px;flex:none">
+        <option value="Hz">Hz</option>
+        <option value="kHz">kHz</option>
+        <option value="MHz">MHz</option>
+        <option value="GHz">GHz</option>
+      </select>
+    </div>
+    <div class="bw-row" style="margin-bottom:0">
+      <button class="btn btn-secondary btn-sm" id="freqRangeResetBtn">全範囲</button>
+    </div>
+  </div>
+
+  <!-- BW detection -->
+  <div class="panel">
+    <div class="panel-title">帯域幅検出 <span style="font-weight:400;text-transform:none;letter-spacing:0">(BPF用)</span></div>
+    <div class="bw-row">
+      <span class="bw-label">トレース</span>
+      <select class="bw-select" id="bwTrace"></select>
+    </div>
+    <div class="bw-row">
+      <span class="bw-label">レベル</span>
+      <input class="bw-input" type="number" id="bwLevel" value="-3" step="0.5">
+      <span class="bw-label">dB</span>
+      <button class="btn btn-secondary btn-sm" id="bwRunBtn">検出</button>
+    </div>
+    <div class="bw-result" id="bwResult">—</div>
+  </div>
+
+  <!-- Export -->
+  <div class="panel">
+    <div class="panel-title">エクスポート</div>
+    <div class="export-row">
+      <button class="btn btn-secondary btn-sm" id="exportPngBtn">PNG 保存</button>
+      <button class="btn btn-secondary btn-sm" id="exportCsvBtn">CSV 保存</button>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ─── CHART AREA ────────────────────────────────────────────── -->
+<main class="chart-area">
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+
+  <div class="err-banner" id="errBanner"></div>
+
+  <div class="status-bar" id="statusBar">
+    <span id="hoverReadout">周波数軸にカーソルを合わせると値を表示します</span>
+  </div>
+
+  <!-- Marker panel -->
+  <div class="panel" id="markerPanel">
+    <div class="panel-title">マーカー</div>
+    <div class="mk-controls">
+      <button class="mk-slot-btn active" id="mkSlot0Btn">M1</button>
+      <button class="mk-slot-btn" id="mkSlot1Btn">M2</button>
+      <button class="btn btn-secondary btn-sm" id="mkClearBtn">クリア</button>
+      <span class="mk-hint">グラフをクリックして配置</span>
+    </div>
+    <div class="marker-grid" id="markerGrid">
+      <span class="mk-label">M1</span><span class="mk-val" id="mkVal0">—</span>
+      <span class="mk-label">M2</span><span class="mk-val" id="mkVal1">—</span>
+      <span class="mk-label">Δ</span><span class="mk-val mk-delta" id="mkDelta">—</span>
+    </div>
+  </div>
+
+  <!-- Stats panel -->
+  <div class="panel" id="statsPanel">
+    <div class="panel-title">統計</div>
+    <div id="statsContent">
+      <div class="empty-msg">トレースなし</div>
+    </div>
+  </div>
+
+</main>
+</div><!-- .workspace -->
+</div><!-- .app -->
+
+<script src="lib/zip.js"></script>
+<script src="lib/touchstone.js"></script>
+<script src="lib/ui-helpers.js"></script>
+<script type="module">
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const PALETTE = ['#1D9E75','#E07B4A','#4A7CB5','#C94F7C','#7A5EA7','#B5A34A','#4AB5A3','#A34A4A'];
+const SPARM_DASHES = [
+  [],
+  [6, 3],
+  [2, 3],
+  [8, 3, 2, 3],
+  [12, 3],
+  [2, 3, 8, 3],
+  [4, 2, 4, 2, 2, 2],
+  [8, 2, 2, 2],
+  [14, 3],
+  [3, 3],
+  [8, 3, 2, 3, 2, 3],
+  [10, 2, 2, 2, 2, 2],
+];
+
+function getSparmDash(key) {
+  const sorted = [...viewState.visibleParams].sort((a, b) => {
+    const ai = parseInt(a[0]), aj = parseInt(a[a.length - 1]);
+    const bi = parseInt(b[0]), bj = parseInt(b[b.length - 1]);
+    return (ai * 10 + aj) - (bi * 10 + bj);
+  });
+  const idx = sorted.indexOf(key);
+  return SPARM_DASHES[idx >= 0 ? idx % SPARM_DASHES.length : 0];
+}
+
+function getTraceColor(key) {
+  const sorted = [...viewState.visibleParams].sort((a, b) => {
+    const ai = parseInt(a[0]), aj = parseInt(a[a.length - 1]);
+    const bi = parseInt(b[0]), bj = parseInt(b[b.length - 1]);
+    return (ai * 10 + aj) - (bi * 10 + bj);
+  });
+  const idx = sorted.indexOf(key);
+  return PALETTE[idx >= 0 ? idx % PALETTE.length : 0];
+}
+
+const PAD = { left: 60, right: 16, top: 20, bottom: 44 };
+const FMT_LABEL = { DB: 'dB', MA: '振幅' };
+const FMT_UNIT  = { DB: 'dB', MA: '' };
+
+// ── State ──────────────────────────────────────────────────────────────────
+let file      = null; // single loaded file entry
+let viewState = {
+  displayFormat: 'DB',
+  logScale:      false,
+  zoom:        { fMin: null, fMax: null },
+  markers:     [null, null],
+  activeSlot:  0,
+  visibleParams: new Set(['11']),
+};
+let analysisSteps = [];
+let nextStepId    = 0;
+let drag          = null;
+let wasDragging   = false;
+let dpr           = window.devicePixelRatio || 1;
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const canvas        = document.getElementById('mainCanvas');
+const ctx           = canvas.getContext('2d');
+const canvasWrap    = document.getElementById('canvasWrap');
+const sparmGrid     = document.getElementById('sparmGrid');
+const sparmActions  = document.getElementById('sparmActions');
+const bwTrace       = document.getElementById('bwTrace');
+const bwResult      = document.getElementById('bwResult');
+const errBanner     = document.getElementById('errBanner');
+const hoverReadout  = document.getElementById('hoverReadout');
+const mkVal0        = document.getElementById('mkVal0');
+const mkVal1        = document.getElementById('mkVal1');
+const mkDelta       = document.getElementById('mkDelta');
+const statsContent  = document.getElementById('statsContent');
+const mkSlot0Btn    = document.getElementById('mkSlot0Btn');
+const mkSlot1Btn    = document.getElementById('mkSlot1Btn');
+const freqStartValEl  = document.getElementById('freqStartVal');
+const freqStartUnitEl = document.getElementById('freqStartUnit');
+const freqStopValEl   = document.getElementById('freqStopVal');
+const freqStopUnitEl  = document.getElementById('freqStopUnit');
+
+// ── Math helpers ───────────────────────────────────────────────────────────
+function toHz(freq, freqUnit) {
+  const m = { Hz: 1, kHz: 1e3, MHz: 1e6, GHz: 1e9 };
+  return freq * (m[freqUnit] ?? 1);
+}
+
+function bestUnit(hz) {
+  if (hz >= 1e9) return 'GHz';
+  if (hz >= 1e6) return 'MHz';
+  if (hz >= 1e3) return 'kHz';
+  return 'Hz';
+}
+function hzToUnit(hz, unit) { return hz / toHz(1, unit); }
+
+function nearestIdx(arr, v) {
+  if (!arr.length) return -1;
+  let best = 0, bestD = Math.abs(arr[0] - v);
+  for (let i = 1; i < arr.length; i++) {
+    const d = Math.abs(arr[i] - v);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+// ── Analysis pipeline functions ────────────────────────────────────────────
+function applyMoving(arr, w, causal, accumulate) {
+  const n   = arr.length;
+  const out = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const lo = causal ? Math.max(0, i - w + 1) : Math.max(0, i - Math.floor(w / 2));
+    const hi = causal ? i                       : Math.min(n - 1, i + Math.floor(w / 2));
+    out[i] = accumulate(arr, lo, hi);
+  }
+  return out;
+}
+
+function movingMax(arr, w, causal) {
+  return applyMoving(arr, w, causal, (a, lo, hi) => {
+    let mx = -Infinity;
+    for (let k = lo; k <= hi; k++) if (a[k] > mx) mx = a[k];
+    return mx;
+  });
+}
+
+function movingAvg(arr, w, causal) {
+  return applyMoving(arr, w, causal, (a, lo, hi) => {
+    let sum = 0;
+    for (let k = lo; k <= hi; k++) sum += a[k];
+    return sum / (hi - lo + 1);
+  });
+}
+
+function applyPipeline(arr) {
+  let result = arr;
+  for (const step of analysisSteps) {
+    if (step.type === 'movingMax') result = movingMax(result, step.window, step.causal);
+    else if (step.type === 'movingAvg') result = movingAvg(result, step.window, step.causal);
+  }
+  return result;
+}
+
+// ── Format helpers ─────────────────────────────────────────────────────────
+function formatFreq(hz) {
+  if (hz >= 1e9) return `${+(hz / 1e9).toPrecision(6)} GHz`;
+  if (hz >= 1e6) return `${+(hz / 1e6).toPrecision(6)} MHz`;
+  if (hz >= 1e3) return `${+(hz / 1e3).toPrecision(6)} kHz`;
+  return `${+hz.toPrecision(6)} Hz`;
+}
+
+function formatVal(v, unit) {
+  if (!isFinite(v)) return '—';
+  return `${v.toFixed(3)}${unit ? ' ' + unit : ''}`;
+}
+
+function formatBW(hz) {
+  if (hz >= 1e9) return `${(hz / 1e9).toFixed(4)} GHz`;
+  if (hz >= 1e6) return `${(hz / 1e6).toFixed(4)} MHz`;
+  if (hz >= 1e3) return `${(hz / 1e3).toFixed(4)} kHz`;
+  return `${hz.toFixed(2)} Hz`;
+}
+
+function niceTicks(min, max, maxCount) {
+  const range = max - min;
+  if (range <= 0) return [min];
+  const rough = range / maxCount;
+  const mag   = Math.pow(10, Math.floor(Math.log10(rough)));
+  const steps = [1, 2, 2.5, 5, 10];
+  let step = mag;
+  for (const s of steps) {
+    step = s * mag;
+    if (range / step <= maxCount + 0.5) break;
+  }
+  const ticks = [];
+  const start = Math.ceil(min / step) * step;
+  for (let t = start; t <= max + step * 1e-6; t += step) {
+    const r = parseFloat(t.toPrecision(10));
+    if (r >= min - step * 1e-6 && r <= max + step * 1e-6) ticks.push(r);
+  }
+  return ticks;
+}
+
+function logFreqTicks(fMin, fMax) {
+  const ticks  = [];
+  const decMin = Math.floor(Math.log10(fMin));
+  const decMax = Math.ceil(Math.log10(fMax));
+  const subs   = fMax / fMin > 100 ? [1, 2, 5] : [1, 2, 3, 5, 7];
+  for (let d = decMin; d <= decMax; d++) {
+    for (const m of subs) {
+      const f = m * Math.pow(10, d);
+      if (f >= fMin * 0.9999 && f <= fMax * 1.0001) ticks.push(f);
+    }
+  }
+  return ticks.length ? ticks : niceTicks(fMin, fMax, 6);
+}
+
+// ── Compute traces ─────────────────────────────────────────────────────────
+function computeForKey(fe, i, j) {
+  const { parsed, n } = fe;
+  const { inFmt, freqUnit, freqData } = parsed;
+  const pairIdx = (i - 1) * n + (j - 1);
+  const N       = freqData.length;
+  const freqHz  = new Float64Array(N);
+  const db      = new Float64Array(N);
+  const mag     = new Float64Array(N);
+
+  for (let k = 0; k < N; k++) {
+    freqHz[k]    = toHz(freqData[k].freq, freqUnit);
+    const [a, b] = freqData[k].pairs[pairIdx];
+    const [re, im] = TT.toRI(a, b, inFmt);
+    mag[k] = Math.sqrt(re * re + im * im);
+    db[k]  = mag[k] === 0 ? -999 : 20 * Math.log10(mag[k]);
+  }
+
+  return { key: `${i}${j}`, freqHz, db, mag };
+}
+
+function computeFile(fe) {
+  fe.computed = new Map();
+  for (let i = 1; i <= fe.n; i++) {
+    for (let j = 1; j <= fe.n; j++) {
+      const key = `${i}${j}`;
+      fe.computed.set(key, computeForKey(fe, i, j));
+    }
+  }
+}
+
+// ── Mode helpers ───────────────────────────────────────────────────────────
+function isLogScale() { return viewState.logScale; }
+
+function getArr(computed) {
+  return viewState.displayFormat === 'DB' ? computed.db : computed.mag;
+}
+
+function getLabel() { return FMT_LABEL[viewState.displayFormat]; }
+function getUnit()  { return FMT_UNIT[viewState.displayFormat]; }
+
+function getVisibleTraces() {
+  if (!file) return [];
+  const result = [];
+  for (const key of viewState.visibleParams) {
+    if (file.computed.has(key)) {
+      result.push({ key, computed: file.computed.get(key) });
+    }
+  }
+  return result;
+}
+
+function getGlobalFreqRange() {
+  if (!file) return { fMin: 1e6, fMax: 6e9 };
+  const traces = getVisibleTraces();
+  if (!traces.length) {
+    const first = file.computed.values().next().value;
+    return first
+      ? { fMin: first.freqHz[0], fMax: first.freqHz[first.freqHz.length - 1] }
+      : { fMin: 1e6, fMax: 6e9 };
+  }
+  let fMin = Infinity, fMax = -Infinity;
+  for (const { computed } of traces) {
+    if (computed.freqHz[0] < fMin) fMin = computed.freqHz[0];
+    const last = computed.freqHz[computed.freqHz.length - 1];
+    if (last > fMax) fMax = last;
+  }
+  return { fMin, fMax };
+}
+
+function getFreqRange() {
+  const g = getGlobalFreqRange();
+  return {
+    fMin: viewState.zoom.fMin ?? g.fMin,
+    fMax: viewState.zoom.fMax ?? g.fMax,
+  };
+}
+
+function syncFreqRangeInputs() {
+  if (!file) {
+    freqStartValEl.value = '';
+    freqStopValEl.value  = '';
+    return;
+  }
+  const { fMin, fMax } = getFreqRange();
+  const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+  if (freqStartValEl.value === '') freqStartUnitEl.value = bestUnit(gMin);
+  if (freqStopValEl.value  === '') freqStopUnitEl.value  = bestUnit(gMax);
+  const su = freqStartUnitEl.value;
+  const eu = freqStopUnitEl.value;
+  freqStartValEl.value = +hzToUnit(fMin, su).toPrecision(6);
+  freqStopValEl.value  = +hzToUnit(fMax, eu).toPrecision(6);
+  freqStartValEl.min = +hzToUnit(gMin, su).toPrecision(6);
+  freqStartValEl.max = +hzToUnit(gMax, su).toPrecision(6);
+  freqStopValEl.min  = +hzToUnit(gMin, eu).toPrecision(6);
+  freqStopValEl.max  = +hzToUnit(gMax, eu).toPrecision(6);
+}
+
+// ── Y range: includes both original and pipeline output to avoid clipping ──
+function getYRange(traces) {
+  let yMin =  Infinity, yMax = -Infinity;
+  const { fMin, fMax } = getFreqRange();
+  const skipLow = viewState.displayFormat === 'DB';
+  for (const { computed } of traces) {
+    const src     = getArr(computed);
+    const pipeArr = analysisSteps.length > 0 ? applyPipeline(src) : null;
+    const fHz     = computed.freqHz;
+    for (let i = 0; i < src.length; i++) {
+      if (fHz[i] < fMin || fHz[i] > fMax) continue;
+      const v = src[i];
+      if (isFinite(v) && !(skipLow && v < -200)) {
+        if (v < yMin) yMin = v;
+        if (v > yMax) yMax = v;
+      }
+      if (pipeArr) {
+        const pv = pipeArr[i];
+        if (isFinite(pv) && !(skipLow && pv < -200)) {
+          if (pv < yMin) yMin = pv;
+          if (pv > yMax) yMax = pv;
+        }
+      }
+    }
+  }
+  if (!isFinite(yMin)) { yMin = -60; yMax = 0; }
+  if (yMin === yMax)   { yMin -= 5; yMax += 5; }
+  const pad = (yMax - yMin) * 0.1;
+  return { yMin: yMin - pad, yMax: yMax + pad };
+}
+
+// ── Canvas coordinate transforms ───────────────────────────────────────────
+function plotDims(c) {
+  return {
+    W: c.clientWidth,
+    H: c.clientHeight,
+    plotW: c.clientWidth  - PAD.left - PAD.right,
+    plotH: c.clientHeight - PAD.top  - PAD.bottom,
+  };
+}
+
+function fToX(f, fMin, fMax, plotW, logScale) {
+  if (logScale) {
+    const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
+    return PAD.left + (Math.log10(f) - lMin) / (lMax - lMin) * plotW;
+  }
+  return PAD.left + (f - fMin) / (fMax - fMin) * plotW;
+}
+
+function xToF(x, fMin, fMax, plotW, logScale) {
+  const t = (x - PAD.left) / plotW;
+  if (logScale) {
+    const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
+    return Math.pow(10, lMin + t * (lMax - lMin));
+  }
+  return fMin + t * (fMax - fMin);
+}
+
+function vToY(v, yMin, yMax, plotH) {
+  return PAD.top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+}
+
+// ── Draw ───────────────────────────────────────────────────────────────────
+function drawChart() {
+  const { W, H, plotW, plotH } = plotDims(canvas);
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const traces   = getVisibleTraces();
+  const { fMin, fMax } = getFreqRange();
+  const { yMin, yMax } = getYRange(traces);
+  const log      = isLogScale() && fMin > 0;
+  const hasPipe  = analysisSteps.length > 0;
+
+  // Background
+  ctx.fillStyle = '#FDFCFA';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#F9F8F5';
+  ctx.fillRect(PAD.left, PAD.top, plotW, plotH);
+
+  // Grid
+  ctx.strokeStyle = '#E4E2DC';
+  ctx.lineWidth   = 1;
+
+  const xTicks = log ? logFreqTicks(fMin, fMax) : niceTicks(fMin, fMax, 7);
+  for (const f of xTicks) {
+    const x = fToX(f, fMin, fMax, plotW, log);
+    if (x < PAD.left - 1 || x > PAD.left + plotW + 1) continue;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + plotH); ctx.stroke();
+  }
+
+  const yTicks = niceTicks(yMin, yMax, 6);
+  for (const v of yTicks) {
+    const y = vToY(v, yMin, yMax, plotH);
+    if (y < PAD.top - 1 || y > PAD.top + plotH + 1) continue;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+  }
+
+  // Axes border
+  ctx.strokeStyle = '#BFBBAF';
+  ctx.lineWidth   = 1;
+  ctx.strokeRect(PAD.left, PAD.top, plotW, plotH);
+
+  // Tick labels: X axis
+  ctx.fillStyle    = '#6B6860';
+  ctx.font         = `${11 * Math.min(1, W / 600)}px 'IBM Plex Mono', monospace`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'top';
+  for (const f of xTicks) {
+    const x = fToX(f, fMin, fMax, plotW, log);
+    if (x < PAD.left - 1 || x > PAD.left + plotW + 1) continue;
+    ctx.fillText(formatFreq(f), x, PAD.top + plotH + 5);
+  }
+
+  // Y-axis label
+  ctx.save();
+  ctx.translate(12, PAD.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle    = '#9E9B93';
+  ctx.font         = `10px 'IBM Plex Mono', monospace`;
+  ctx.fillText(getLabel(), 0, 0);
+  ctx.restore();
+
+  // Tick labels: Y axis
+  ctx.textAlign    = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.font         = `11px 'IBM Plex Mono', monospace`;
+  for (const v of yTicks) {
+    const y = vToY(v, yMin, yMax, plotH);
+    if (y < PAD.top - 1 || y > PAD.top + plotH + 1) continue;
+    ctx.fillText(v.toString(), PAD.left - 5, y);
+  }
+
+  // Clip to plot area
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(PAD.left, PAD.top, plotW, plotH);
+  ctx.clip();
+
+  // Original traces (faded when pipeline active)
+  for (const { key, computed } of traces) {
+    const arr   = getArr(computed);
+    const fHz   = computed.freqHz;
+    const color = getTraceColor(key);
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1.75;
+    ctx.lineJoin    = 'round';
+    ctx.setLineDash(getSparmDash(key));
+    ctx.globalAlpha = hasPipe ? 0.35 : 1;
+    let started = false;
+    for (let i = 0; i < fHz.length; i++) {
+      const f = fHz[i];
+      const v = arr[i];
+      if (!isFinite(v)) { started = false; continue; }
+      if (viewState.displayFormat === 'DB' && v < -300) { started = false; continue; }
+      const x = fToX(f, fMin, fMax, plotW, log);
+      const y = vToY(v, yMin, yMax, plotH);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  // Pipeline overlay
+  if (hasPipe) {
+    for (const { key, computed } of traces) {
+      const src     = getArr(computed);
+      const pipeArr = applyPipeline(src);
+      const fHz     = computed.freqHz;
+      const color   = getTraceColor(key);
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 2.5;
+      ctx.lineJoin    = 'round';
+      ctx.setLineDash([]);
+      let started = false;
+      for (let i = 0; i < fHz.length; i++) {
+        const f = fHz[i];
+        const v = pipeArr[i];
+        if (!isFinite(v)) { started = false; continue; }
+        const x = fToX(f, fMin, fMax, plotW, log);
+        const y = vToY(v, yMin, yMax, plotH);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+
+  // Markers
+  const mColors = ['#E07B4A', '#4A7CB5'];
+  for (let slot = 0; slot < 2; slot++) {
+    const mk = viewState.markers[slot];
+    if (!mk) continue;
+    const x = fToX(mk.freqHz, fMin, fMax, plotW, log);
+    if (x < PAD.left || x > PAD.left + plotW) continue;
+    ctx.save();
+    ctx.strokeStyle = mColors[slot];
+    ctx.lineWidth   = 1.5;
+    if (slot === 1) ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, PAD.top);
+    ctx.lineTo(x, PAD.top + plotH);
+    ctx.stroke();
+
+    for (const { key, computed } of traces) {
+      const arr = hasPipe ? applyPipeline(getArr(computed)) : getArr(computed);
+      const idx = nearestIdx(computed.freqHz, mk.freqHz);
+      const v   = arr[idx];
+      if (!isFinite(v)) continue;
+      const y = vToY(v, yMin, yMax, plotH);
+      if (y < PAD.top || y > PAD.top + plotH) continue;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fillStyle   = getTraceColor(key);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    ctx.fillStyle    = mColors[slot];
+    ctx.font         = `bold 10px 'IBM Plex Mono', monospace`;
+    ctx.textBaseline = 'bottom';
+    const label = `M${slot + 1}: ${formatFreq(mk.freqHz)}`;
+    const lw    = ctx.measureText(label).width;
+    const lx    = Math.min(x + 4, PAD.left + plotW - lw - 4);
+    ctx.fillText(label, lx, PAD.top + 14);
+    ctx.restore();
+  }
+
+  // Legend
+  if (traces.length) {
+    const pipeLabel = hasPipe
+      ? ' [' + analysisSteps.map(s => {
+          const mode = s.causal ? '因果' : '中心';
+          return s.type === 'movingMax' ? `MMax(${s.window},${mode})` : `MAvg(${s.window},${mode})`;
+        }).join('→') + ']'
+      : '';
+    const items = traces.map(t => ({
+      label: `S${t.key}${pipeLabel}`,
+      color: getTraceColor(t.key),
+      dash:  hasPipe ? [] : getSparmDash(t.key),
+      thick: hasPipe,
+    }));
+    const lFont  = '10px \'IBM Plex Mono\', monospace';
+    ctx.font     = lFont;
+    const lPad   = 6, lH = 16, lSwW = 18;
+    const lMaxW  = items.reduce((m, it) => Math.max(m, ctx.measureText(it.label).width), 0);
+    const lBoxW  = lMaxW + lSwW + lPad * 3;
+    const lBoxH  = items.length * lH + lPad * 2;
+    const lX     = PAD.left + plotW - lBoxW - 6;
+    const lY     = PAD.top + 6;
+
+    ctx.fillStyle   = 'rgba(253,252,250,0.88)';
+    ctx.strokeStyle = '#D8D5CE';
+    ctx.lineWidth   = 0.75;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.roundRect(lX, lY, lBoxW, lBoxH, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    items.forEach((it, idx) => {
+      const iy = lY + lPad + idx * lH + lH / 2;
+      ctx.save();
+      ctx.strokeStyle = it.color;
+      ctx.lineWidth   = it.thick ? 2.5 : 2;
+      ctx.setLineDash(it.dash);
+      ctx.beginPath();
+      ctx.moveTo(lX + lPad, iy);
+      ctx.lineTo(lX + lPad + lSwW, iy);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle    = '#1C1B18';
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(it.label, lX + lPad + lSwW + 4, iy);
+    });
+  }
+
+  // Empty state
+  if (!traces.length) {
+    ctx.fillStyle    = '#9E9B93';
+    ctx.font         = `14px 'IBM Plex Sans', sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ファイルを読み込んでください', W / 2, H / 2);
+  }
+
+  ctx.restore();
+}
+
+function redraw() {
+  drawChart();
+  updateStatsPanel();
+  syncFreqRangeInputs();
+}
+
+// ── Markers ────────────────────────────────────────────────────────────────
+function pixelToSnappedFreq(px) {
+  const traces = getVisibleTraces();
+  if (!traces.length) return null;
+  const { fMin, fMax } = getFreqRange();
+  const { plotW }      = plotDims(canvas);
+  const f              = xToF(px, fMin, fMax, plotW, isLogScale());
+  let bestFreq = null, bestDist = Infinity;
+  for (const { computed } of traces) {
+    const idx = nearestIdx(computed.freqHz, f);
+    if (idx < 0) continue;
+    const dist = Math.abs(computed.freqHz[idx] - f);
+    if (dist < bestDist) { bestDist = dist; bestFreq = computed.freqHz[idx]; }
+  }
+  return bestFreq;
+}
+
+function getMarkerDisplay(mk) {
+  if (!mk) return '—';
+  const traces = getVisibleTraces();
+  if (!traces.length) return formatFreq(mk.freqHz);
+  const hasPipe = analysisSteps.length > 0;
+  const parts = [`<span>${formatFreq(mk.freqHz)}</span>`];
+  for (const { key, computed } of traces) {
+    const arr  = hasPipe ? applyPipeline(getArr(computed)) : getArr(computed);
+    const idx  = nearestIdx(computed.freqHz, mk.freqHz);
+    if (idx < 0) continue;
+    const v    = arr[idx];
+    parts.push(`<span style="color:${getTraceColor(key)}">S${key}: ${formatVal(v, getUnit())}</span>`);
+  }
+  return `<div class="mk-row">${parts.join('')}</div>`;
+}
+
+function updateMarkerPanel() {
+  const [m0, m1] = viewState.markers;
+  mkVal0.innerHTML = getMarkerDisplay(m0);
+  mkVal1.innerHTML = getMarkerDisplay(m1);
+
+  if (m0 && m1) {
+    const df     = Math.abs(m1.freqHz - m0.freqHz);
+    const traces = getVisibleTraces();
+    let dValStr  = '';
+    if (traces.length) {
+      const hasPipe = analysisSteps.length > 0;
+      const arr  = hasPipe ? applyPipeline(getArr(traces[0].computed)) : getArr(traces[0].computed);
+      const i0   = nearestIdx(traces[0].computed.freqHz, m0.freqHz);
+      const i1   = nearestIdx(traces[0].computed.freqHz, m1.freqHz);
+      if (i0 >= 0 && i1 >= 0 && isFinite(arr[i0]) && isFinite(arr[i1])) {
+        dValStr = `  ΔY: ${formatVal(arr[i1] - arr[i0], getUnit())}`;
+      }
+    }
+    mkDelta.innerHTML = `<span>ΔF: ${formatFreq(df)}${dValStr}</span>`;
+  } else {
+    mkDelta.innerHTML = '—';
+  }
+}
+
+function updateStatsPanel() {
+  const traces = getVisibleTraces();
+  if (!traces.length) {
+    statsContent.innerHTML = '<div class="empty-msg">トレースなし</div>';
+    return;
+  }
+  const { fMin, fMax } = getFreqRange();
+  const skipLow        = viewState.displayFormat === 'DB';
+  const unit           = getUnit();
+  const label          = getLabel();
+  const hasPipe        = analysisSteps.length > 0;
+
+  const rows = traces.map(({ key, computed }) => {
+    const arr  = hasPipe ? applyPipeline(getArr(computed)) : getArr(computed);
+    const fHz  = computed.freqHz;
+    let vMin =  Infinity, vMax = -Infinity, peakF = 0, minF = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (fHz[i] < fMin || fHz[i] > fMax) continue;
+      const v = arr[i];
+      if (!isFinite(v) || (skipLow && v < -300)) continue;
+      if (v > vMax) { vMax = v; peakF = fHz[i]; }
+      if (v < vMin) { vMin = v; minF  = fHz[i]; }
+    }
+    const color = getTraceColor(key);
+    return `<tr>
+      <td><span class="c-swatch" style="background:${color}"></span>S${key}</td>
+      <td>${isFinite(vMax) ? formatVal(vMax, unit) : '—'}</td>
+      <td>${isFinite(vMax) ? formatFreq(peakF) : '—'}</td>
+      <td>${isFinite(vMin) ? formatVal(vMin, unit) : '—'}</td>
+      <td>${isFinite(vMin) ? formatFreq(minF) : '—'}</td>
+    </tr>`;
+  }).join('');
+  statsContent.innerHTML = `<table class="stats-table">
+    <thead><tr><th>トレース</th><th>${label} 最大</th><th>周波数</th><th>${label} 最小</th><th>周波数</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── BW detection ───────────────────────────────────────────────────────────
+function findBandwidth(computed, dbLevel) {
+  const { freqHz, db } = computed;
+  const N = freqHz.length;
+  if (N < 3) return null;
+  let peakIdx = 0;
+  for (let i = 1; i < N; i++) { if (db[i] > db[peakIdx]) peakIdx = i; }
+  const threshold = db[peakIdx] + dbLevel;
+
+  const edgeWarning = peakIdx < 2 || peakIdx > N - 3
+    ? 'ピークが測定端にあります。LPF/HPF には正確な帯域幅を算出できない場合があります。' : null;
+
+  let loIdx = peakIdx;
+  while (loIdx > 0 && db[loIdx] >= threshold) loIdx--;
+  let hiIdx = peakIdx;
+  while (hiIdx < N - 1 && db[hiIdx] >= threshold) hiIdx++;
+
+  let fLo, fHi;
+  if (loIdx === peakIdx || (loIdx === 0 && db[0] >= threshold)) {
+    fLo = freqHz[0];
+  } else {
+    const t = (threshold - db[loIdx]) / (db[loIdx + 1] - db[loIdx]);
+    fLo = freqHz[loIdx] + t * (freqHz[loIdx + 1] - freqHz[loIdx]);
+  }
+  if (hiIdx === peakIdx || (hiIdx === N - 1 && db[N - 1] >= threshold)) {
+    fHi = freqHz[N - 1];
+  } else {
+    const t = (threshold - db[hiIdx - 1]) / (db[hiIdx] - db[hiIdx - 1]);
+    fHi = freqHz[hiIdx - 1] + t * (freqHz[hiIdx] - freqHz[hiIdx - 1]);
+  }
+  return { fLow: fLo, fHigh: fHi, bw: fHi - fLo,
+           peakDb: db[peakIdx], peakFreq: freqHz[peakIdx], threshold, edgeWarning };
+}
+
+function renderBwTraceSelect() {
+  if (!file) { bwTrace.innerHTML = ''; return; }
+  const old = bwTrace.value;
+  bwTrace.innerHTML = '';
+  for (const key of viewState.visibleParams) {
+    if (!file.computed.has(key)) continue;
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = `S${key}`;
+    bwTrace.appendChild(opt);
+  }
+  if (old) bwTrace.value = old;
+}
+
+// ── Render sidebar UI ──────────────────────────────────────────────────────
+function renderSparmGrid() {
+  if (!file) {
+    sparmGrid.style.gridTemplateColumns = '';
+    sparmGrid.innerHTML = '<div class="empty-msg">ファイルを読み込んでください</div>';
+    sparmActions.style.display = 'none';
+    return;
+  }
+  sparmActions.style.display = '';
+  sparmGrid.style.gridTemplateColumns = `repeat(${file.n}, auto)`;
+  let html = '';
+  for (let i = 1; i <= file.n; i++) {
+    for (let j = 1; j <= file.n; j++) {
+      const key = `${i}${j}`;
+      const chk = viewState.visibleParams.has(key);
+      html += `<label class="sp-item">
+        <input type="checkbox" data-key="${key}" ${chk ? 'checked' : ''}>
+        <span>S${key}</span>
+      </label>`;
+    }
+  }
+  sparmGrid.innerHTML = html;
+  sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      cb.checked
+        ? viewState.visibleParams.add(cb.dataset.key)
+        : viewState.visibleParams.delete(cb.dataset.key);
+      renderAll();
+    });
+  });
+}
+
+// ── Analysis pipeline UI ───────────────────────────────────────────────────
+const STEP_LABELS      = { movingMax: '移動最大値', movingAvg: '移動平均' };
+const STEP_BADGE_CLASS = { movingMax: 'moving-max', movingAvg: 'moving-avg' };
+const STEP_ABBR        = { movingMax: 'MAX', movingAvg: 'AVG' };
+
+let dragSrcId   = null;
+let dragAllowed = false;
+
+function renderPipelinePanel() {
+  const container = document.getElementById('pipelineSteps');
+  const empty     = document.getElementById('pipelineEmpty');
+  container.querySelectorAll('.pipeline-step').forEach(el => el.remove());
+  if (!analysisSteps.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  analysisSteps.forEach((step, idx) => {
+    const row = document.createElement('div');
+    row.className      = 'pipeline-step';
+    row.draggable      = true;
+    row.dataset.stepId = step.id;
+    row.innerHTML = `
+      <span class="step-drag-handle" title="ドラッグして並び替え">⠿</span>
+      <span class="step-num">${idx + 1}.</span>
+      <span class="step-badge ${STEP_BADGE_CLASS[step.type]}" title="${STEP_LABELS[step.type]}">${STEP_ABBR[step.type]}</span>
+      <button class="step-mode-btn${step.causal ? ' causal' : ''}" title="因果: 現在点以前のみ / 中心: 前後対称">${step.causal ? '因果' : '中心'}</button>
+      <input class="step-window" type="number" value="${step.window}" min="1" max="9999" title="ウィンドウ幅 (点数)">
+      <span class="step-pt">pt</span>
+      <button class="icon-btn remove step-remove" title="削除">✕</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+const pipelineContainer = document.getElementById('pipelineSteps');
+
+function clearDragOver() {
+  pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
+}
+
+pipelineContainer.addEventListener('mousedown', e => {
+  dragAllowed = !!e.target.closest('.step-drag-handle');
+});
+
+pipelineContainer.addEventListener('dragstart', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (!row || !dragAllowed) { e.preventDefault(); return; }
+  dragSrcId = Number(row.dataset.stepId);
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(dragSrcId));
+  requestAnimationFrame(() => row.classList.add('dragging'));
+});
+
+pipelineContainer.addEventListener('dragend', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (row) row.classList.remove('dragging');
+  clearDragOver();
+  dragSrcId   = null;
+  dragAllowed = false;
+});
+
+pipelineContainer.addEventListener('dragover', e => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.target.closest('.pipeline-step');
+  clearDragOver();
+  if (row && Number(row.dataset.stepId) !== dragSrcId) row.classList.add('drag-over');
+});
+
+pipelineContainer.addEventListener('dragleave', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (row) row.classList.remove('drag-over');
+});
+
+pipelineContainer.addEventListener('drop', e => {
+  e.preventDefault();
+  const targetRow = e.target.closest('.pipeline-step');
+  if (!targetRow) return;
+  const targetId = Number(targetRow.dataset.stepId);
+  if (targetId === dragSrcId) return;
+  const srcIdx = analysisSteps.findIndex(s => s.id === dragSrcId);
+  const dstIdx = analysisSteps.findIndex(s => s.id === targetId);
+  if (srcIdx < 0 || dstIdx < 0) return;
+  const [moved] = analysisSteps.splice(srcIdx, 1);
+  analysisSteps.splice(dstIdx, 0, moved);
+  renderPipelinePanel();
+  redraw();
+});
+
+function defaultWindow() {
+  const traces = getVisibleTraces();
+  if (traces.length) return Math.max(1, Math.round(traces[0].computed.freqHz.length / 20));
+  if (file) {
+    const first = file.computed.values().next().value;
+    if (first) return Math.max(1, Math.round(first.freqHz.length / 20));
+  }
+  return 100;
+}
+
+document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
+  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: defaultWindow(), causal: false });
+  renderPipelinePanel();
+  redraw();
+});
+
+document.getElementById('addMovingAvgBtn').addEventListener('click', () => {
+  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: defaultWindow(), causal: false });
+  renderPipelinePanel();
+  redraw();
+});
+
+pipelineContainer.addEventListener('click', e => {
+  if (e.target.closest('.step-remove')) {
+    const id = Number(e.target.closest('.pipeline-step').dataset.stepId);
+    analysisSteps = analysisSteps.filter(s => s.id !== id);
+    renderPipelinePanel();
+    redraw();
+    return;
+  }
+  if (e.target.closest('.step-mode-btn')) {
+    const id   = Number(e.target.closest('.pipeline-step').dataset.stepId);
+    const step = analysisSteps.find(s => s.id === id);
+    if (step) { step.causal = !step.causal; renderPipelinePanel(); redraw(); }
+  }
+});
+
+pipelineContainer.addEventListener('input', e => {
+  const input = e.target.closest('.step-window');
+  if (!input) return;
+  const id  = Number(input.closest('.pipeline-step').dataset.stepId);
+  const val = parseInt(input.value, 10);
+  const step = analysisSteps.find(s => s.id === id);
+  if (step && val >= 1) { step.window = val; redraw(); }
+});
+
+function renderAll() {
+  renderSparmGrid();
+  renderBwTraceSelect();
+  redraw();
+  updateMarkerPanel();
+}
+
+// ── Canvas events ──────────────────────────────────────────────────────────
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const px   = e.clientX - rect.left;
+  const { plotW } = plotDims(canvas);
+  if (px < PAD.left || px > PAD.left + plotW) return;
+
+  const { fMin, fMax } = getFreqRange();
+  const log        = isLogScale();
+  const fAtCursor  = xToF(px, fMin, fMax, plotW, log);
+  const factor     = e.deltaY > 0 ? 1.3 : 1 / 1.3;
+  const global     = getGlobalFreqRange();
+
+  let newMin, newMax;
+  if (log) {
+    const lAt  = Math.log10(fAtCursor);
+    const lMin = Math.log10(fMin), lMax = Math.log10(fMax);
+    newMin = Math.pow(10, lAt - (lAt - lMin) * factor);
+    newMax = Math.pow(10, lAt + (lMax - lAt) * factor);
+  } else {
+    newMin = fAtCursor - (fAtCursor - fMin) * factor;
+    newMax = fAtCursor + (fMax - fAtCursor) * factor;
+  }
+
+  newMin = Math.max(newMin, global.fMin);
+  newMax = Math.min(newMax, global.fMax);
+  if (newMax - newMin > 0) {
+    viewState.zoom = { fMin: newMin, fMax: newMax };
+    redraw();
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointerdown', e => {
+  const { fMin, fMax } = getFreqRange();
+  drag = { startX: e.offsetX, startFMin: fMin, startFMax: fMax };
+  wasDragging = false;
+  canvas.classList.add('panning');
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (drag) {
+    const dx = e.offsetX - drag.startX;
+    if (Math.abs(dx) > 3) wasDragging = true;
+    if (wasDragging) {
+      canvas.classList.add('grabbing');
+      const { plotW } = plotDims(canvas);
+      const log    = isLogScale();
+      const global = getGlobalFreqRange();
+      const { startFMin, startFMax } = drag;
+      if (log) {
+        const lMin = Math.log10(startFMin), lMax = Math.log10(startFMax);
+        const dLog = -(dx / plotW) * (lMax - lMin);
+        viewState.zoom = {
+          fMin: Math.max(Math.pow(10, lMin + dLog), global.fMin),
+          fMax: Math.min(Math.pow(10, lMax + dLog), global.fMax),
+        };
+      } else {
+        const df = -(dx / plotW) * (startFMax - startFMin);
+        viewState.zoom = {
+          fMin: Math.max(startFMin + df, global.fMin),
+          fMax: Math.min(startFMax + df, global.fMax),
+        };
+      }
+      redraw();
+    }
+  } else {
+    updateHoverReadout(e.offsetX);
+  }
+});
+
+canvas.addEventListener('pointerup', () => {
+  canvas.classList.remove('panning', 'grabbing');
+  drag = null;
+});
+
+canvas.addEventListener('click', e => {
+  if (wasDragging) { wasDragging = false; return; }
+  const { plotW } = plotDims(canvas);
+  if (e.offsetX < PAD.left || e.offsetX > PAD.left + plotW) return;
+  const snapped = pixelToSnappedFreq(e.offsetX);
+  if (snapped === null) return;
+  viewState.markers[viewState.activeSlot] = { freqHz: snapped };
+  viewState.activeSlot = 1 - viewState.activeSlot;
+  mkSlot0Btn.classList.toggle('active', viewState.activeSlot === 0);
+  mkSlot1Btn.classList.toggle('active', viewState.activeSlot === 1);
+  redraw();
+  updateMarkerPanel();
+});
+
+canvas.addEventListener('dblclick', () => {
+  viewState.zoom = { fMin: null, fMax: null };
+  redraw();
+});
+
+function updateHoverReadout(px) {
+  const { plotW } = plotDims(canvas);
+  const { fMin, fMax } = getFreqRange();
+  const traces = getVisibleTraces();
+  if (px < PAD.left || px > PAD.left + plotW || !traces.length) {
+    hoverReadout.textContent = '—';
+    return;
+  }
+  const log     = isLogScale();
+  const f       = xToF(px, fMin, fMax, plotW, log);
+  const hasPipe = analysisSteps.length > 0;
+  const parts   = [formatFreq(f)];
+  for (const { key, computed } of traces.slice(0, 4)) {
+    const arr = hasPipe ? applyPipeline(getArr(computed)) : getArr(computed);
+    const idx = nearestIdx(computed.freqHz, f);
+    parts.push(`S${key}: ${formatVal(arr[idx], getUnit())}`);
+  }
+  hoverReadout.textContent = parts.join('  ');
+}
+
+// ── Sidebar events ─────────────────────────────────────────────────────────
+document.getElementById('fmtBtns').addEventListener('click', e => {
+  const btn = e.target.closest('[data-fmt]');
+  if (!btn) return;
+  viewState.displayFormat = btn.dataset.fmt;
+  document.querySelectorAll('[data-fmt]').forEach(b => b.classList.toggle('active', b === btn));
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  redraw();
+});
+
+document.getElementById('scaleBtns').addEventListener('click', e => {
+  const btn = e.target.closest('[data-scale]');
+  if (!btn) return;
+  viewState.logScale = btn.dataset.scale === 'log';
+  document.querySelectorAll('[data-scale]').forEach(b => b.classList.toggle('active', b === btn));
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  redraw();
+});
+
+let freqRangeDebounce = null;
+function applyFreqRange() {
+  const fMin = toHz(+freqStartValEl.value, freqStartUnitEl.value);
+  const fMax = toHz(+freqStopValEl.value,  freqStopUnitEl.value);
+  if (!isFinite(fMin) || !isFinite(fMax) || fMin >= fMax || fMin < 0) return;
+  viewState.zoom = { fMin, fMax };
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  redraw();
+}
+function scheduleApplyFreqRange() {
+  clearTimeout(freqRangeDebounce);
+  freqRangeDebounce = setTimeout(applyFreqRange, 250);
+}
+
+[freqStartValEl, freqStopValEl].forEach(el => {
+  el.addEventListener('input', scheduleApplyFreqRange);
+});
+
+function setupUnitHandler(unitEl, valEl, getHz) {
+  unitEl.addEventListener('change', () => {
+    clearTimeout(freqRangeDebounce);
+    const { fMin: gMin, fMax: gMax } = getGlobalFreqRange();
+    const u = unitEl.value;
+    valEl.value = +hzToUnit(getHz(), u).toPrecision(6);
+    valEl.min   = +hzToUnit(gMin, u).toPrecision(6);
+    valEl.max   = +hzToUnit(gMax, u).toPrecision(6);
+  });
+}
+setupUnitHandler(freqStartUnitEl, freqStartValEl, () => getFreqRange().fMin);
+setupUnitHandler(freqStopUnitEl,  freqStopValEl,  () => getFreqRange().fMax);
+
+document.getElementById('freqRangeResetBtn').addEventListener('click', () => {
+  viewState.zoom = { fMin: null, fMax: null };
+  viewState.markers = [null, null];
+  updateMarkerPanel();
+  redraw();
+});
+
+document.getElementById('sparmAllBtn').addEventListener('click', () => {
+  sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
+    cb.checked = true; viewState.visibleParams.add(cb.dataset.key);
+  });
+  renderAll();
+});
+
+document.getElementById('sparmNoneBtn').addEventListener('click', () => {
+  sparmGrid.querySelectorAll('input[data-key]').forEach(cb => {
+    cb.checked = false; viewState.visibleParams.delete(cb.dataset.key);
+  });
+  redraw(); updateStatsPanel();
+});
+
+mkSlot0Btn.addEventListener('click', () => {
+  viewState.activeSlot = 0;
+  mkSlot0Btn.classList.add('active');
+  mkSlot1Btn.classList.remove('active');
+});
+mkSlot1Btn.addEventListener('click', () => {
+  viewState.activeSlot = 1;
+  mkSlot1Btn.classList.add('active');
+  mkSlot0Btn.classList.remove('active');
+});
+document.getElementById('mkClearBtn').addEventListener('click', () => {
+  viewState.markers = [null, null];
+  viewState.activeSlot = 0;
+  mkSlot0Btn.classList.add('active');
+  mkSlot1Btn.classList.remove('active');
+  updateMarkerPanel(); redraw();
+});
+
+document.getElementById('bwRunBtn').addEventListener('click', () => {
+  const key = bwTrace.value;
+  if (!key || !file || !file.computed.has(key)) {
+    bwResult.innerHTML = '<span class="bw-err">トレースなし</span>'; return;
+  }
+  const level  = parseFloat(document.getElementById('bwLevel').value);
+  const result = findBandwidth(file.computed.get(key), level);
+  if (!result) {
+    bwResult.innerHTML = '<span class="bw-err">帯域幅の検出に失敗しました</span>';
+    return;
+  }
+  const warnHtml = result.edgeWarning
+    ? `<span class="bw-err" style="display:block;margin-top:4px">⚠ ${result.edgeWarning}</span>` : '';
+  bwResult.innerHTML = `
+    帯域幅: <span class="bw-val">${formatBW(result.bw)}</span><br>
+    Flo: <span class="bw-val">${formatFreq(result.fLow)}</span><br>
+    Fhi: <span class="bw-val">${formatFreq(result.fHigh)}</span><br>
+    ピーク: <span class="bw-val">${result.peakDb.toFixed(3)} dB @ ${formatFreq(result.peakFreq)}</span>
+    ${warnHtml}
+  `;
+});
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function makeTimestamp() {
+  const now = new Date();
+  return `${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}`;
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  Object.assign(document.createElement('a'), { href: url, download: filename }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+document.getElementById('exportPngBtn').addEventListener('click', () => {
+  redraw();
+  canvas.toBlob(blob => downloadBlob(blob, `singwave_${makeTimestamp()}.png`), 'image/png');
+});
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+  if (!file) return;
+  const traces = getVisibleTraces();
+  if (!traces.length) return;
+
+  const hasPipe = analysisSteps.length > 0;
+  const fmt     = viewState.displayFormat;
+  const baseName = file.name.replace(/\.s\d+p$/i, '');
+
+  const headers = ['Freq[Hz]'];
+  for (const { key } of traces) {
+    if (fmt === 'DB') {
+      headers.push(`S${key}_dB[dB]`);
+      if (hasPipe) headers.push(`S${key}_dB_filtered[dB]`);
+    } else {
+      headers.push(`S${key}_mag`);
+      if (hasPipe) headers.push(`S${key}_mag_filtered`);
+    }
+  }
+
+  const N = traces[0].computed.freqHz.length;
+  const lines = [
+    ...TT.csvPreamble(file.parsed),
+    headers.join(','),
+  ];
+  for (let i = 0; i < N; i++) {
+    const row = [traces[0].computed.freqHz[i].toExponential(8)];
+    for (const { computed } of traces) {
+      const src     = getArr(computed);
+      const pipe    = hasPipe ? applyPipeline(src) : null;
+      row.push(src[i].toExponential(8));
+      if (pipe) row.push(pipe[i].toExponential(8));
+    }
+    lines.push(row.join(','));
+  }
+
+  const zip = TT.buildZip([{ name: `${baseName}.csv`, data: lines.join('\r\n') + '\r\n' }]);
+  downloadBlob(new Blob([zip], { type: 'application/zip' }), `singwave_${makeTimestamp()}.zip`);
+});
+
+// ── File loading ───────────────────────────────────────────────────────────
+async function loadFile(f) {
+  try {
+    const n      = TT.portCount(f.name);
+    const text   = await f.text();
+    const parsed = TT.parseTouchstone(text, n);
+    file = { name: f.name, n, parsed, computed: new Map() };
+    computeFile(file);
+
+    // Auto-select diagonal S-params
+    viewState.visibleParams = new Set();
+    for (let i = 1; i <= n; i++) {
+      viewState.visibleParams.add(`${i}${i}`);
+    }
+    viewState.zoom    = { fMin: null, fMax: null };
+    viewState.markers = [null, null];
+    analysisSteps     = [];
+    nextStepId        = 0;
+
+    document.getElementById('currentFileName').textContent = f.name;
+    document.getElementById('currentFileName').classList.remove('empty');
+    errBanner.classList.remove('show');
+    renderPipelinePanel();
+    renderAll();
+  } catch (err) {
+    errBanner.textContent = `${f.name}: ${err.message}`;
+    errBanner.classList.add('show');
+  }
+}
+
+async function handleFiles(fileList_) {
+  const snp = Array.from(fileList_).find(f => /\.s\d+p$/i.test(f.name));
+  if (snp) await loadFile(snp);
+}
+
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+TT.setupDropZone(dropZone, handleFiles);
+
+// ── Resize observer ────────────────────────────────────────────────────────
+new ResizeObserver(() => {
+  dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(canvas.clientWidth  * dpr);
+  canvas.height = Math.round(canvas.clientHeight * dpr);
+  redraw();
+}).observe(canvasWrap);
+
+// ── Init ───────────────────────────────────────────────────────────────────
+canvas.width  = Math.round(canvas.clientWidth  * dpr);
+canvas.height = Math.round(canvas.clientHeight * dpr);
+redraw();
+
+</script>
+</body>
+</html>
