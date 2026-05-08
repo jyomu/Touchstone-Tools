@@ -347,7 +347,22 @@ header {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  cursor: default;
+  transition: opacity 0.15s, border-color 0.15s;
 }
+.pipeline-step.dragging   { opacity: 0.4; }
+.pipeline-step.drag-over  { border-color: var(--accent); background: var(--surface); }
+
+.step-drag-handle {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  cursor: grab;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0 1px;
+  user-select: none;
+}
+.step-drag-handle:active { cursor: grabbing; }
 
 .step-badge {
   font-family: var(--mono);
@@ -1611,21 +1626,21 @@ function renderSparmGrid() {
 }
 
 // ── Analysis pipeline UI ───────────────────────────────────────────────────
-const STEP_LABELS = { movingMax: '移動最大値', movingAvg: '移動平均' };
-const STEP_BADGE_CLASS = { movingMax: 'moving-max', movingAvg: 'moving-avg' };
-const STEP_ABBR = { movingMax: 'MAX', movingAvg: 'AVG' };
+const STEP_LABELS     = { movingMax: '移動最大値', movingAvg: '移動平均' };
+const STEP_BADGE_CLASS= { movingMax: 'moving-max', movingAvg: 'moving-avg' };
+const STEP_ABBR       = { movingMax: 'MAX', movingAvg: 'AVG' };
+
+let dragSrcId = null; // step id being dragged
 
 function renderPipelinePanel() {
   const container = document.getElementById('pipelineSteps');
   const empty     = document.getElementById('pipelineEmpty');
   if (!analysisSteps.length) {
     empty.style.display = '';
-    // Remove all step elements
     container.querySelectorAll('.pipeline-step, .pipeline-arrow').forEach(el => el.remove());
     return;
   }
   empty.style.display = 'none';
-  // Rebuild steps
   container.querySelectorAll('.pipeline-step, .pipeline-arrow').forEach(el => el.remove());
   analysisSteps.forEach((step, idx) => {
     if (idx > 0) {
@@ -1635,9 +1650,11 @@ function renderPipelinePanel() {
       container.appendChild(arrow);
     }
     const row = document.createElement('div');
-    row.className = 'pipeline-step';
+    row.className   = 'pipeline-step';
+    row.draggable   = true;
     row.dataset.stepId = step.id;
     row.innerHTML = `
+      <span class="step-drag-handle" title="ドラッグして並び替え">⠿</span>
       <span class="step-badge ${STEP_BADGE_CLASS[step.type]}">${STEP_ABBR[step.type]}</span>
       <span class="step-type-label">${STEP_LABELS[step.type]}</span>
       <input class="step-window" type="number" value="${step.window}" min="1" max="9999" title="ウィンドウ幅 (点数)">
@@ -1647,6 +1664,59 @@ function renderPipelinePanel() {
     container.appendChild(row);
   });
 }
+
+// Drag-and-drop reordering
+const pipelineContainer = document.getElementById('pipelineSteps');
+
+pipelineContainer.addEventListener('dragstart', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (!row) return;
+  // Only allow drag from the handle
+  if (!e.target.closest('.step-drag-handle')) { e.preventDefault(); return; }
+  dragSrcId = Number(row.dataset.stepId);
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragSrcId);
+  requestAnimationFrame(() => row.classList.add('dragging'));
+});
+
+pipelineContainer.addEventListener('dragend', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (row) row.classList.remove('dragging');
+  pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
+  dragSrcId = null;
+});
+
+pipelineContainer.addEventListener('dragover', e => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.target.closest('.pipeline-step');
+  pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
+  if (row && Number(row.dataset.stepId) !== dragSrcId) row.classList.add('drag-over');
+});
+
+pipelineContainer.addEventListener('dragleave', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (row) row.classList.remove('drag-over');
+});
+
+pipelineContainer.addEventListener('drop', e => {
+  e.preventDefault();
+  const targetRow = e.target.closest('.pipeline-step');
+  if (!targetRow) return;
+  const targetId = Number(targetRow.dataset.stepId);
+  if (targetId === dragSrcId) return;
+
+  const srcIdx = analysisSteps.findIndex(s => s.id === dragSrcId);
+  const dstIdx = analysisSteps.findIndex(s => s.id === targetId);
+  if (srcIdx < 0 || dstIdx < 0) return;
+
+  // Reorder: remove src and insert at dst position
+  const [moved] = analysisSteps.splice(srcIdx, 1);
+  analysisSteps.splice(dstIdx, 0, moved);
+
+  renderPipelinePanel();
+  redraw();
+});
 
 document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
   analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: 11 });
@@ -1660,7 +1730,7 @@ document.getElementById('addMovingAvgBtn').addEventListener('click', () => {
   redraw();
 });
 
-document.getElementById('pipelineSteps').addEventListener('click', e => {
+pipelineContainer.addEventListener('click', e => {
   const btn = e.target.closest('.step-remove');
   if (!btn) return;
   const id = Number(btn.closest('.pipeline-step').dataset.stepId);
@@ -1669,7 +1739,7 @@ document.getElementById('pipelineSteps').addEventListener('click', e => {
   redraw();
 });
 
-document.getElementById('pipelineSteps').addEventListener('input', e => {
+pipelineContainer.addEventListener('input', e => {
   const input = e.target.closest('.step-window');
   if (!input) return;
   const id  = Number(input.closest('.pipeline-step').dataset.stepId);
