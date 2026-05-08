@@ -1630,7 +1630,8 @@ const STEP_LABELS     = { movingMax: '移動最大値', movingAvg: '移動平均
 const STEP_BADGE_CLASS= { movingMax: 'moving-max', movingAvg: 'moving-avg' };
 const STEP_ABBR       = { movingMax: 'MAX', movingAvg: 'AVG' };
 
-let dragSrcId = null; // step id being dragged
+let dragSrcId   = null; // step id being dragged
+let dragAllowed = false; // true only when mousedown was on the handle
 
 function renderPipelinePanel() {
   const container = document.getElementById('pipelineSteps');
@@ -1668,14 +1669,16 @@ function renderPipelinePanel() {
 // Drag-and-drop reordering
 const pipelineContainer = document.getElementById('pipelineSteps');
 
+pipelineContainer.addEventListener('mousedown', e => {
+  dragAllowed = !!e.target.closest('.step-drag-handle');
+});
+
 pipelineContainer.addEventListener('dragstart', e => {
   const row = e.target.closest('.pipeline-step');
-  if (!row) return;
-  // Only allow drag from the handle
-  if (!e.target.closest('.step-drag-handle')) { e.preventDefault(); return; }
+  if (!row || !dragAllowed) { e.preventDefault(); return; }
   dragSrcId = Number(row.dataset.stepId);
   e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', dragSrcId);
+  e.dataTransfer.setData('text/plain', String(dragSrcId));
   requestAnimationFrame(() => row.classList.add('dragging'));
 });
 
@@ -1683,7 +1686,8 @@ pipelineContainer.addEventListener('dragend', e => {
   const row = e.target.closest('.pipeline-step');
   if (row) row.classList.remove('dragging');
   pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
-  dragSrcId = null;
+  dragSrcId   = null;
+  dragAllowed = false;
 });
 
 pipelineContainer.addEventListener('dragover', e => {
