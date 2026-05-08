@@ -396,12 +396,13 @@ header {
   text-align: right;
 }
 
-.pipeline-arrow {
+.step-num {
+  font-family: var(--mono);
   font-size: 0.65rem;
   color: var(--text-faint);
-  text-align: center;
-  line-height: 1;
-  padding: 0 2px;
+  flex-shrink: 0;
+  min-width: 14px;
+  text-align: right;
 }
 
 .pipeline-add-row {
@@ -748,32 +749,32 @@ function nearestIdx(arr, v) {
 }
 
 // ── Analysis pipeline functions ────────────────────────────────────────────
-function movingMax(arr, w) {
+function applyMoving(arr, w, accumulate) {
   const half = Math.floor(w / 2);
   const n    = arr.length;
   const out  = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     const lo = Math.max(0, i - half);
     const hi = Math.min(n - 1, i + half);
-    let mx = -Infinity;
-    for (let k = lo; k <= hi; k++) if (arr[k] > mx) mx = arr[k];
-    out[i] = mx;
+    out[i] = accumulate(arr, lo, hi);
   }
   return out;
 }
 
+function movingMax(arr, w) {
+  return applyMoving(arr, w, (a, lo, hi) => {
+    let mx = -Infinity;
+    for (let k = lo; k <= hi; k++) if (a[k] > mx) mx = a[k];
+    return mx;
+  });
+}
+
 function movingAvg(arr, w) {
-  const half = Math.floor(w / 2);
-  const n    = arr.length;
-  const out  = new Float64Array(n);
-  for (let i = 0; i < n; i++) {
-    const lo = Math.max(0, i - half);
-    const hi = Math.min(n - 1, i + half);
+  return applyMoving(arr, w, (a, lo, hi) => {
     let sum = 0;
-    for (let k = lo; k <= hi; k++) sum += arr[k];
-    out[i] = sum / (hi - lo + 1);
-  }
-  return out;
+    for (let k = lo; k <= hi; k++) sum += a[k];
+    return sum / (hi - lo + 1);
+  });
 }
 
 function applyPipeline(arr) {
@@ -933,7 +934,8 @@ function getYRange(traces, getArr, skipLow) {
   let yMin =  Infinity, yMax = -Infinity;
   const { fMin, fMax } = getFreqRange();
   for (const { computed } of traces) {
-    const arr = getArr(computed);
+    const src = getArr(computed);
+    const arr = analysisSteps.length > 0 ? applyPipeline(src) : src;
     const fHz = computed.freqHz;
     for (let i = 0; i < arr.length; i++) {
       if (fHz[i] < fMin || fHz[i] > fMax) continue;
@@ -1161,7 +1163,7 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
       ? ' [' + analysisSteps.map(s => s.type === 'movingMax' ? `MMax(${s.window})` : `MAvg(${s.window})`).join('→') + ']'
       : '';
     const items = traces.map(t => ({
-      label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}${pipeLabel ? ' ' + pipeLabel : ''}`,
+      label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}${pipeLabel}`,
       color: t.fileEntry.color,
       dash:  analysisSteps.length > 0 ? [] : getSparmDash(t.key),
       thick: analysisSteps.length > 0,
@@ -1636,26 +1638,17 @@ let dragAllowed = false; // true only when mousedown was on the handle
 function renderPipelinePanel() {
   const container = document.getElementById('pipelineSteps');
   const empty     = document.getElementById('pipelineEmpty');
-  if (!analysisSteps.length) {
-    empty.style.display = '';
-    container.querySelectorAll('.pipeline-step, .pipeline-arrow').forEach(el => el.remove());
-    return;
-  }
+  container.querySelectorAll('.pipeline-step').forEach(el => el.remove());
+  if (!analysisSteps.length) { empty.style.display = ''; return; }
   empty.style.display = 'none';
-  container.querySelectorAll('.pipeline-step, .pipeline-arrow').forEach(el => el.remove());
   analysisSteps.forEach((step, idx) => {
-    if (idx > 0) {
-      const arrow = document.createElement('div');
-      arrow.className = 'pipeline-arrow';
-      arrow.textContent = '↓';
-      container.appendChild(arrow);
-    }
     const row = document.createElement('div');
-    row.className   = 'pipeline-step';
-    row.draggable   = true;
+    row.className      = 'pipeline-step';
+    row.draggable      = true;
     row.dataset.stepId = step.id;
     row.innerHTML = `
       <span class="step-drag-handle" title="ドラッグして並び替え">⠿</span>
+      <span class="step-num">${idx + 1}.</span>
       <span class="step-badge ${STEP_BADGE_CLASS[step.type]}">${STEP_ABBR[step.type]}</span>
       <span class="step-type-label">${STEP_LABELS[step.type]}</span>
       <input class="step-window" type="number" value="${step.window}" min="1" max="9999" title="ウィンドウ幅 (点数)">
@@ -1668,6 +1661,10 @@ function renderPipelinePanel() {
 
 // Drag-and-drop reordering
 const pipelineContainer = document.getElementById('pipelineSteps');
+
+function clearDragOver() {
+  pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
+}
 
 pipelineContainer.addEventListener('mousedown', e => {
   dragAllowed = !!e.target.closest('.step-drag-handle');
@@ -1685,7 +1682,7 @@ pipelineContainer.addEventListener('dragstart', e => {
 pipelineContainer.addEventListener('dragend', e => {
   const row = e.target.closest('.pipeline-step');
   if (row) row.classList.remove('dragging');
-  pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
+  clearDragOver();
   dragSrcId   = null;
   dragAllowed = false;
 });
@@ -1694,7 +1691,7 @@ pipelineContainer.addEventListener('dragover', e => {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   const row = e.target.closest('.pipeline-step');
-  pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
+  clearDragOver();
   if (row && Number(row.dataset.stepId) !== dragSrcId) row.classList.add('drag-over');
 });
 
@@ -1723,13 +1720,13 @@ pipelineContainer.addEventListener('drop', e => {
 });
 
 document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
-  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: 11 });
+  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: 100 });
   renderPipelinePanel();
   redraw();
 });
 
 document.getElementById('addMovingAvgBtn').addEventListener('click', () => {
-  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: 11 });
+  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: 100 });
   renderPipelinePanel();
   redraw();
 });
