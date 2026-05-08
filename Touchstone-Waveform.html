@@ -1738,14 +1738,26 @@ pipelineContainer.addEventListener('drop', e => {
   redraw();
 });
 
+function defaultWindow() {
+  const traces = getVisibleTraces();
+  if (traces.length) return Math.max(1, Math.round(traces[0].computed.freqHz.length / 20));
+  // ファイル未読込時はファイル配列から最初のトレースを探す
+  for (const fe of files) {
+    for (const c of fe.computed.values()) {
+      return Math.max(1, Math.round(c.freqHz.length / 20));
+    }
+  }
+  return 100;
+}
+
 document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
-  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: 100, causal: false });
+  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: defaultWindow(), causal: false });
   renderPipelinePanel();
   redraw();
 });
 
 document.getElementById('addMovingAvgBtn').addEventListener('click', () => {
-  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: 100, causal: false });
+  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: defaultWindow(), causal: false });
   renderPipelinePanel();
   redraw();
 });
