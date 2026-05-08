@@ -336,6 +336,73 @@ header {
 .btn-sm { font-size: 0.7rem; padding: 0.2rem 0.55rem; }
 .btn:disabled { opacity: 0.38; cursor: not-allowed; }
 
+/* Analysis pipeline */
+.pipeline-steps { display: flex; flex-direction: column; gap: 4px; }
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.step-badge {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.step-badge.moving-max { background: #7A5EA7; }
+.step-badge.moving-avg { background: #1D9E75; }
+
+.step-type-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  flex: 1;
+  white-space: nowrap;
+}
+
+.step-window {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 4px;
+  width: 46px;
+  text-align: right;
+}
+
+.pipeline-arrow {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.pipeline-add-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.pipeline-empty {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 6px 0 2px;
+}
+
 /* Error banner */
 .err-banner {
   font-size: 0.75rem;
@@ -413,6 +480,18 @@ header {
     <div class="sp-item">
       <input type="checkbox" id="phaseUnwrapChk" checked>
       <label for="phaseUnwrapChk">位相アンラップ (UW)</label>
+    </div>
+  </div>
+
+  <!-- Analysis pipeline -->
+  <div class="panel" id="analysisPanel">
+    <div class="panel-title">分析パイプライン</div>
+    <div class="pipeline-steps" id="pipelineSteps">
+      <div class="pipeline-empty" id="pipelineEmpty">ステップなし（元データをそのまま表示）</div>
+    </div>
+    <div class="pipeline-add-row">
+      <button class="seg-btn" id="addMovingMaxBtn">＋ 移動最大値</button>
+      <button class="seg-btn" id="addMovingAvgBtn">＋ 移動平均</button>
     </div>
   </div>
 
@@ -565,6 +644,8 @@ let viewState   = {
   visibleParams: new Set(['11']),
   phaseUnwrap: true,
 };
+let analysisSteps = []; // [{ id, type: 'movingMax'|'movingAvg', window: number }]
+let nextStepId    = 0;
 let drag = null;    // { startX, startFMin, startFMax }
 let wasDragging = false;
 let dpr = window.devicePixelRatio || 1;
@@ -649,6 +730,44 @@ function nearestIdx(arr, v) {
     if (d < bestD) { bestD = d; best = i; }
   }
   return best;
+}
+
+// ── Analysis pipeline functions ────────────────────────────────────────────
+function movingMax(arr, w) {
+  const half = Math.floor(w / 2);
+  const n    = arr.length;
+  const out  = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const lo = Math.max(0, i - half);
+    const hi = Math.min(n - 1, i + half);
+    let mx = -Infinity;
+    for (let k = lo; k <= hi; k++) if (arr[k] > mx) mx = arr[k];
+    out[i] = mx;
+  }
+  return out;
+}
+
+function movingAvg(arr, w) {
+  const half = Math.floor(w / 2);
+  const n    = arr.length;
+  const out  = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const lo = Math.max(0, i - half);
+    const hi = Math.min(n - 1, i + half);
+    let sum = 0;
+    for (let k = lo; k <= hi; k++) sum += arr[k];
+    out[i] = sum / (hi - lo + 1);
+  }
+  return out;
+}
+
+function applyPipeline(arr) {
+  let result = arr;
+  for (const step of analysisSteps) {
+    if (step.type === 'movingMax') result = movingMax(result, step.window);
+    else if (step.type === 'movingAvg') result = movingAvg(result, step.window);
+  }
+  return result;
 }
 
 // ── Format helpers ─────────────────────────────────────────────────────────
@@ -948,6 +1067,35 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
     cx.stroke();
     cx.setLineDash([]);
   }
+
+  // Analysis pipeline overlay (upper chart only)
+  if (analysisSteps.length > 0 && c === canvas) {
+    for (const { fileEntry, computed } of traces) {
+      const sourceArr = getArr(computed);
+      const pipeArr   = applyPipeline(sourceArr);
+      const fHz       = computed.freqHz;
+      cx.beginPath();
+      cx.strokeStyle = fileEntry.color;
+      cx.lineWidth   = 2.75;
+      cx.lineJoin    = 'round';
+      cx.setLineDash([]);
+      cx.globalAlpha = 0.85;
+      let started = false;
+      for (let i = 0; i < fHz.length; i++) {
+        const f = fHz[i];
+        const v = pipeArr[i];
+        if (!isFinite(v)) { started = false; continue; }
+        const x = fToX(f, fMin, fMax, plotW, log);
+        const y = vToY(v, yMin, yMax, plotH);
+        if (!started) { cx.moveTo(x, y); started = true; }
+        else cx.lineTo(x, y);
+      }
+      cx.stroke();
+      cx.globalAlpha = 1;
+      cx.setLineDash([]);
+    }
+  }
+
   cx.restore();
 
   // Markers
@@ -994,10 +1142,14 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
 
   // Legend (upper chart only)
   if (traces.length && c === canvas) {
+    const pipeLabel = analysisSteps.length > 0
+      ? ' [' + analysisSteps.map(s => s.type === 'movingMax' ? `MMax(${s.window})` : `MAvg(${s.window})`).join('→') + ']'
+      : '';
     const items = traces.map(t => ({
-      label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}`,
+      label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}${pipeLabel ? ' ' + pipeLabel : ''}`,
       color: t.fileEntry.color,
-      dash:  getSparmDash(t.key),
+      dash:  analysisSteps.length > 0 ? [] : getSparmDash(t.key),
+      thick: analysisSteps.length > 0,
     }));
     const lFont   = '10px \'IBM Plex Mono\', monospace';
     cx.font      = lFont;
@@ -1021,13 +1173,13 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
       const iy = lY + lPad + idx * lH + lH / 2;
       cx.save();
       cx.strokeStyle = it.color;
-      cx.lineWidth   = 2;
+      cx.lineWidth   = it.thick ? 2.75 : 2;
+      cx.globalAlpha = it.thick ? 0.85 : 1;
       cx.setLineDash(it.dash);
       cx.beginPath();
       cx.moveTo(lX + lPad, iy);
       cx.lineTo(lX + lPad + lSwW, iy);
       cx.stroke();
-      cx.restore();
       cx.fillStyle   = '#1C1B18';
       cx.textAlign   = 'left';
       cx.textBaseline= 'middle';
@@ -1457,6 +1609,77 @@ function renderSparmGrid() {
     });
   });
 }
+
+// ── Analysis pipeline UI ───────────────────────────────────────────────────
+const STEP_LABELS = { movingMax: '移動最大値', movingAvg: '移動平均' };
+const STEP_BADGE_CLASS = { movingMax: 'moving-max', movingAvg: 'moving-avg' };
+const STEP_ABBR = { movingMax: 'MAX', movingAvg: 'AVG' };
+
+function renderPipelinePanel() {
+  const container = document.getElementById('pipelineSteps');
+  const empty     = document.getElementById('pipelineEmpty');
+  if (!analysisSteps.length) {
+    empty.style.display = '';
+    // Remove all step elements
+    container.querySelectorAll('.pipeline-step, .pipeline-arrow').forEach(el => el.remove());
+    return;
+  }
+  empty.style.display = 'none';
+  // Rebuild steps
+  container.querySelectorAll('.pipeline-step, .pipeline-arrow').forEach(el => el.remove());
+  analysisSteps.forEach((step, idx) => {
+    if (idx > 0) {
+      const arrow = document.createElement('div');
+      arrow.className = 'pipeline-arrow';
+      arrow.textContent = '↓';
+      container.appendChild(arrow);
+    }
+    const row = document.createElement('div');
+    row.className = 'pipeline-step';
+    row.dataset.stepId = step.id;
+    row.innerHTML = `
+      <span class="step-badge ${STEP_BADGE_CLASS[step.type]}">${STEP_ABBR[step.type]}</span>
+      <span class="step-type-label">${STEP_LABELS[step.type]}</span>
+      <input class="step-window" type="number" value="${step.window}" min="1" max="9999" title="ウィンドウ幅 (点数)">
+      <span style="font-size:0.65rem;color:var(--text-faint)">pt</span>
+      <button class="icon-btn remove step-remove" title="削除">✕</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
+  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: 11 });
+  renderPipelinePanel();
+  redraw();
+});
+
+document.getElementById('addMovingAvgBtn').addEventListener('click', () => {
+  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: 11 });
+  renderPipelinePanel();
+  redraw();
+});
+
+document.getElementById('pipelineSteps').addEventListener('click', e => {
+  const btn = e.target.closest('.step-remove');
+  if (!btn) return;
+  const id = Number(btn.closest('.pipeline-step').dataset.stepId);
+  analysisSteps = analysisSteps.filter(s => s.id !== id);
+  renderPipelinePanel();
+  redraw();
+});
+
+document.getElementById('pipelineSteps').addEventListener('input', e => {
+  const input = e.target.closest('.step-window');
+  if (!input) return;
+  const id  = Number(input.closest('.pipeline-step').dataset.stepId);
+  const val = parseInt(input.value, 10);
+  const step = analysisSteps.find(s => s.id === id);
+  if (step && val >= 1) {
+    step.window = val;
+    redraw();
+  }
+});
 
 function renderAll() {
   renderFileList();
