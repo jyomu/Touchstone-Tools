@@ -336,6 +336,106 @@ header {
 .btn-sm { font-size: 0.7rem; padding: 0.2rem 0.55rem; }
 .btn:disabled { opacity: 0.38; cursor: not-allowed; }
 
+/* Analysis pipeline */
+.pipeline-steps { display: flex; flex-direction: column; gap: 4px; }
+
+.pipeline-step {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: default;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.pipeline-step.dragging   { opacity: 0.4; }
+.pipeline-step.drag-over  { border-color: var(--accent); background: var(--surface); }
+
+.step-drag-handle {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  cursor: grab;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0 1px;
+  user-select: none;
+}
+.step-drag-handle:active { cursor: grabbing; }
+
+.step-badge {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.step-badge.moving-max { background: #7A5EA7; }
+.step-badge.moving-avg { background: #1D9E75; }
+
+.step-window {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 2px 4px;
+  width: 46px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.step-pt {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.step-num {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  min-width: 14px;
+  text-align: right;
+}
+
+.step-mode-btn {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.step-mode-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+.step-mode-btn.causal { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.pipeline-add-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.pipeline-empty {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 6px 0 2px;
+}
+
 /* Error banner */
 .err-banner {
   font-size: 0.75rem;
@@ -413,6 +513,18 @@ header {
     <div class="sp-item">
       <input type="checkbox" id="phaseUnwrapChk" checked>
       <label for="phaseUnwrapChk">位相アンラップ (UW)</label>
+    </div>
+  </div>
+
+  <!-- Analysis pipeline -->
+  <div class="panel" id="analysisPanel">
+    <div class="panel-title">分析パイプライン</div>
+    <div class="pipeline-steps" id="pipelineSteps">
+      <div class="pipeline-empty" id="pipelineEmpty">ステップなし（元データをそのまま表示）</div>
+    </div>
+    <div class="pipeline-add-row">
+      <button class="seg-btn" id="addMovingMaxBtn">＋ 移動最大値</button>
+      <button class="seg-btn" id="addMovingAvgBtn">＋ 移動平均</button>
     </div>
   </div>
 
@@ -565,6 +677,8 @@ let viewState   = {
   visibleParams: new Set(['11']),
   phaseUnwrap: true,
 };
+let analysisSteps = []; // [{ id, type: 'movingMax'|'movingAvg', window: number }]
+let nextStepId    = 0;
 let drag = null;    // { startX, startFMin, startFMax }
 let wasDragging = false;
 let dpr = window.devicePixelRatio || 1;
@@ -649,6 +763,43 @@ function nearestIdx(arr, v) {
     if (d < bestD) { bestD = d; best = i; }
   }
   return best;
+}
+
+// ── Analysis pipeline functions ────────────────────────────────────────────
+function applyMoving(arr, w, causal, accumulate) {
+  const n   = arr.length;
+  const out = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const lo = causal ? Math.max(0, i - w + 1) : Math.max(0, i - Math.floor(w / 2));
+    const hi = causal ? i                       : Math.min(n - 1, i + Math.floor(w / 2));
+    out[i] = accumulate(arr, lo, hi);
+  }
+  return out;
+}
+
+function movingMax(arr, w, causal) {
+  return applyMoving(arr, w, causal, (a, lo, hi) => {
+    let mx = -Infinity;
+    for (let k = lo; k <= hi; k++) if (a[k] > mx) mx = a[k];
+    return mx;
+  });
+}
+
+function movingAvg(arr, w, causal) {
+  return applyMoving(arr, w, causal, (a, lo, hi) => {
+    let sum = 0;
+    for (let k = lo; k <= hi; k++) sum += a[k];
+    return sum / (hi - lo + 1);
+  });
+}
+
+function applyPipeline(arr) {
+  let result = arr;
+  for (const step of analysisSteps) {
+    if (step.type === 'movingMax') result = movingMax(result, step.window, step.causal);
+    else if (step.type === 'movingAvg') result = movingAvg(result, step.window, step.causal);
+  }
+  return result;
 }
 
 // ── Format helpers ─────────────────────────────────────────────────────────
@@ -799,7 +950,8 @@ function getYRange(traces, getArr, skipLow) {
   let yMin =  Infinity, yMax = -Infinity;
   const { fMin, fMax } = getFreqRange();
   for (const { computed } of traces) {
-    const arr = getArr(computed);
+    const src = getArr(computed);
+    const arr = analysisSteps.length > 0 ? applyPipeline(src) : src;
     const fHz = computed.freqHz;
     for (let i = 0; i < arr.length; i++) {
       if (fHz[i] < fMin || fHz[i] > fMax) continue;
@@ -948,6 +1100,35 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
     cx.stroke();
     cx.setLineDash([]);
   }
+
+  // Analysis pipeline overlay (upper chart only)
+  if (analysisSteps.length > 0 && c === canvas) {
+    for (const { fileEntry, computed } of traces) {
+      const sourceArr = getArr(computed);
+      const pipeArr   = applyPipeline(sourceArr);
+      const fHz       = computed.freqHz;
+      cx.beginPath();
+      cx.strokeStyle = fileEntry.color;
+      cx.lineWidth   = 2.75;
+      cx.lineJoin    = 'round';
+      cx.setLineDash([]);
+      cx.globalAlpha = 0.85;
+      let started = false;
+      for (let i = 0; i < fHz.length; i++) {
+        const f = fHz[i];
+        const v = pipeArr[i];
+        if (!isFinite(v)) { started = false; continue; }
+        const x = fToX(f, fMin, fMax, plotW, log);
+        const y = vToY(v, yMin, yMax, plotH);
+        if (!started) { cx.moveTo(x, y); started = true; }
+        else cx.lineTo(x, y);
+      }
+      cx.stroke();
+      cx.globalAlpha = 1;
+      cx.setLineDash([]);
+    }
+  }
+
   cx.restore();
 
   // Markers
@@ -994,10 +1175,17 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
 
   // Legend (upper chart only)
   if (traces.length && c === canvas) {
+    const pipeLabel = analysisSteps.length > 0
+      ? ' [' + analysisSteps.map(s => {
+          const mode = s.causal ? '因果' : '中心';
+          return s.type === 'movingMax' ? `MMax(${s.window},${mode})` : `MAvg(${s.window},${mode})`;
+        }).join('→') + ']'
+      : '';
     const items = traces.map(t => ({
-      label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}`,
+      label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}${pipeLabel}`,
       color: t.fileEntry.color,
-      dash:  getSparmDash(t.key),
+      dash:  analysisSteps.length > 0 ? [] : getSparmDash(t.key),
+      thick: analysisSteps.length > 0,
     }));
     const lFont   = '10px \'IBM Plex Mono\', monospace';
     cx.font      = lFont;
@@ -1021,13 +1209,13 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
       const iy = lY + lPad + idx * lH + lH / 2;
       cx.save();
       cx.strokeStyle = it.color;
-      cx.lineWidth   = 2;
+      cx.lineWidth   = it.thick ? 2.75 : 2;
+      cx.globalAlpha = it.thick ? 0.85 : 1;
       cx.setLineDash(it.dash);
       cx.beginPath();
       cx.moveTo(lX + lPad, iy);
       cx.lineTo(lX + lPad + lSwW, iy);
       cx.stroke();
-      cx.restore();
       cx.fillStyle   = '#1C1B18';
       cx.textAlign   = 'left';
       cx.textBaseline= 'middle';
@@ -1457,6 +1645,149 @@ function renderSparmGrid() {
     });
   });
 }
+
+// ── Analysis pipeline UI ───────────────────────────────────────────────────
+const STEP_LABELS     = { movingMax: '移動最大値', movingAvg: '移動平均' };
+const STEP_BADGE_CLASS= { movingMax: 'moving-max', movingAvg: 'moving-avg' };
+const STEP_ABBR       = { movingMax: 'MAX', movingAvg: 'AVG' };
+
+let dragSrcId   = null; // step id being dragged
+let dragAllowed = false; // true only when mousedown was on the handle
+
+function renderPipelinePanel() {
+  const container = document.getElementById('pipelineSteps');
+  const empty     = document.getElementById('pipelineEmpty');
+  container.querySelectorAll('.pipeline-step').forEach(el => el.remove());
+  if (!analysisSteps.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  analysisSteps.forEach((step, idx) => {
+    const row = document.createElement('div');
+    row.className      = 'pipeline-step';
+    row.draggable      = true;
+    row.dataset.stepId = step.id;
+    row.innerHTML = `
+      <span class="step-drag-handle" title="ドラッグして並び替え">⠿</span>
+      <span class="step-num">${idx + 1}.</span>
+      <span class="step-badge ${STEP_BADGE_CLASS[step.type]}" title="${STEP_LABELS[step.type]}">${STEP_ABBR[step.type]}</span>
+      <button class="step-mode-btn${step.causal ? ' causal' : ''}" title="因果: 現在点以前のみ / 中心: 前後対称">${step.causal ? '因果' : '中心'}</button>
+      <input class="step-window" type="number" value="${step.window}" min="1" max="9999" title="ウィンドウ幅 (点数)">
+      <span class="step-pt">pt</span>
+      <button class="icon-btn remove step-remove" title="削除">✕</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// Drag-and-drop reordering
+const pipelineContainer = document.getElementById('pipelineSteps');
+
+function clearDragOver() {
+  pipelineContainer.querySelectorAll('.pipeline-step').forEach(r => r.classList.remove('drag-over'));
+}
+
+pipelineContainer.addEventListener('mousedown', e => {
+  dragAllowed = !!e.target.closest('.step-drag-handle');
+});
+
+pipelineContainer.addEventListener('dragstart', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (!row || !dragAllowed) { e.preventDefault(); return; }
+  dragSrcId = Number(row.dataset.stepId);
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(dragSrcId));
+  requestAnimationFrame(() => row.classList.add('dragging'));
+});
+
+pipelineContainer.addEventListener('dragend', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (row) row.classList.remove('dragging');
+  clearDragOver();
+  dragSrcId   = null;
+  dragAllowed = false;
+});
+
+pipelineContainer.addEventListener('dragover', e => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.target.closest('.pipeline-step');
+  clearDragOver();
+  if (row && Number(row.dataset.stepId) !== dragSrcId) row.classList.add('drag-over');
+});
+
+pipelineContainer.addEventListener('dragleave', e => {
+  const row = e.target.closest('.pipeline-step');
+  if (row) row.classList.remove('drag-over');
+});
+
+pipelineContainer.addEventListener('drop', e => {
+  e.preventDefault();
+  const targetRow = e.target.closest('.pipeline-step');
+  if (!targetRow) return;
+  const targetId = Number(targetRow.dataset.stepId);
+  if (targetId === dragSrcId) return;
+
+  const srcIdx = analysisSteps.findIndex(s => s.id === dragSrcId);
+  const dstIdx = analysisSteps.findIndex(s => s.id === targetId);
+  if (srcIdx < 0 || dstIdx < 0) return;
+
+  // Reorder: remove src and insert at dst position
+  const [moved] = analysisSteps.splice(srcIdx, 1);
+  analysisSteps.splice(dstIdx, 0, moved);
+
+  renderPipelinePanel();
+  redraw();
+});
+
+function defaultWindow() {
+  const traces = getVisibleTraces();
+  if (traces.length) return Math.max(1, Math.round(traces[0].computed.freqHz.length / 20));
+  // ファイル未読込時はファイル配列から最初のトレースを探す
+  for (const fe of files) {
+    for (const c of fe.computed.values()) {
+      return Math.max(1, Math.round(c.freqHz.length / 20));
+    }
+  }
+  return 100;
+}
+
+document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
+  analysisSteps.push({ id: nextStepId++, type: 'movingMax', window: defaultWindow(), causal: false });
+  renderPipelinePanel();
+  redraw();
+});
+
+document.getElementById('addMovingAvgBtn').addEventListener('click', () => {
+  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: defaultWindow(), causal: false });
+  renderPipelinePanel();
+  redraw();
+});
+
+pipelineContainer.addEventListener('click', e => {
+  if (e.target.closest('.step-remove')) {
+    const id = Number(e.target.closest('.pipeline-step').dataset.stepId);
+    analysisSteps = analysisSteps.filter(s => s.id !== id);
+    renderPipelinePanel();
+    redraw();
+    return;
+  }
+  if (e.target.closest('.step-mode-btn')) {
+    const id   = Number(e.target.closest('.pipeline-step').dataset.stepId);
+    const step = analysisSteps.find(s => s.id === id);
+    if (step) { step.causal = !step.causal; renderPipelinePanel(); redraw(); }
+  }
+});
+
+pipelineContainer.addEventListener('input', e => {
+  const input = e.target.closest('.step-window');
+  if (!input) return;
+  const id  = Number(input.closest('.pipeline-step').dataset.stepId);
+  const val = parseInt(input.value, 10);
+  const step = analysisSteps.find(s => s.id === id);
+  if (step && val >= 1) {
+    step.window = val;
+    redraw();
+  }
+});
 
 function renderAll() {
   renderFileList();
