@@ -405,6 +405,23 @@ header {
   text-align: right;
 }
 
+.step-mode-btn {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.step-mode-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+.step-mode-btn.causal { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 .pipeline-add-row {
   display: flex;
   gap: 4px;
@@ -749,28 +766,27 @@ function nearestIdx(arr, v) {
 }
 
 // ── Analysis pipeline functions ────────────────────────────────────────────
-function applyMoving(arr, w, accumulate) {
-  const half = Math.floor(w / 2);
-  const n    = arr.length;
-  const out  = new Float64Array(n);
+function applyMoving(arr, w, causal, accumulate) {
+  const n   = arr.length;
+  const out = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    const lo = Math.max(0, i - half);
-    const hi = Math.min(n - 1, i + half);
+    const lo = causal ? Math.max(0, i - w + 1) : Math.max(0, i - Math.floor(w / 2));
+    const hi = causal ? i                       : Math.min(n - 1, i + Math.floor(w / 2));
     out[i] = accumulate(arr, lo, hi);
   }
   return out;
 }
 
 function movingMax(arr, w) {
-  return applyMoving(arr, w, (a, lo, hi) => {
+  return applyMoving(arr, w, false, (a, lo, hi) => {
     let mx = -Infinity;
     for (let k = lo; k <= hi; k++) if (a[k] > mx) mx = a[k];
     return mx;
   });
 }
 
-function movingAvg(arr, w) {
-  return applyMoving(arr, w, (a, lo, hi) => {
+function movingAvg(arr, w, causal) {
+  return applyMoving(arr, w, causal, (a, lo, hi) => {
     let sum = 0;
     for (let k = lo; k <= hi; k++) sum += a[k];
     return sum / (hi - lo + 1);
@@ -781,7 +797,7 @@ function applyPipeline(arr) {
   let result = arr;
   for (const step of analysisSteps) {
     if (step.type === 'movingMax') result = movingMax(result, step.window);
-    else if (step.type === 'movingAvg') result = movingAvg(result, step.window);
+    else if (step.type === 'movingAvg') result = movingAvg(result, step.window, step.causal);
   }
   return result;
 }
@@ -1160,7 +1176,10 @@ function drawRect(c, cx, getArr, yLabel, skipLow) {
   // Legend (upper chart only)
   if (traces.length && c === canvas) {
     const pipeLabel = analysisSteps.length > 0
-      ? ' [' + analysisSteps.map(s => s.type === 'movingMax' ? `MMax(${s.window})` : `MAvg(${s.window})`).join('→') + ']'
+      ? ' [' + analysisSteps.map(s => {
+          if (s.type === 'movingMax') return `MMax(${s.window})`;
+          return `MAvg(${s.window},${s.causal ? '因果' : '中心'})`;
+        }).join('→') + ']'
       : '';
     const items = traces.map(t => ({
       label: `${t.fileEntry.name.replace(/\.s\d+p$/i,'').slice(-12)} S${t.key}${pipeLabel}`,
@@ -1646,11 +1665,15 @@ function renderPipelinePanel() {
     row.className      = 'pipeline-step';
     row.draggable      = true;
     row.dataset.stepId = step.id;
+    const modeToggle = step.type === 'movingAvg'
+      ? `<button class="step-mode-btn${step.causal ? ' causal' : ''}" title="因果: 現在点以前のみ / 中心: 前後対称">${step.causal ? '因果' : '中心'}</button>`
+      : '';
     row.innerHTML = `
       <span class="step-drag-handle" title="ドラッグして並び替え">⠿</span>
       <span class="step-num">${idx + 1}.</span>
       <span class="step-badge ${STEP_BADGE_CLASS[step.type]}">${STEP_ABBR[step.type]}</span>
       <span class="step-type-label">${STEP_LABELS[step.type]}</span>
+      ${modeToggle}
       <input class="step-window" type="number" value="${step.window}" min="1" max="9999" title="ウィンドウ幅 (点数)">
       <span style="font-size:0.65rem;color:var(--text-faint)">pt</span>
       <button class="icon-btn remove step-remove" title="削除">✕</button>
@@ -1726,18 +1749,24 @@ document.getElementById('addMovingMaxBtn').addEventListener('click', () => {
 });
 
 document.getElementById('addMovingAvgBtn').addEventListener('click', () => {
-  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: 100 });
+  analysisSteps.push({ id: nextStepId++, type: 'movingAvg', window: 100, causal: false });
   renderPipelinePanel();
   redraw();
 });
 
 pipelineContainer.addEventListener('click', e => {
-  const btn = e.target.closest('.step-remove');
-  if (!btn) return;
-  const id = Number(btn.closest('.pipeline-step').dataset.stepId);
-  analysisSteps = analysisSteps.filter(s => s.id !== id);
-  renderPipelinePanel();
-  redraw();
+  if (e.target.closest('.step-remove')) {
+    const id = Number(e.target.closest('.pipeline-step').dataset.stepId);
+    analysisSteps = analysisSteps.filter(s => s.id !== id);
+    renderPipelinePanel();
+    redraw();
+    return;
+  }
+  if (e.target.closest('.step-mode-btn')) {
+    const id   = Number(e.target.closest('.pipeline-step').dataset.stepId);
+    const step = analysisSteps.find(s => s.id === id);
+    if (step) { step.causal = !step.causal; renderPipelinePanel(); redraw(); }
+  }
 });
 
 pipelineContainer.addEventListener('input', e => {
